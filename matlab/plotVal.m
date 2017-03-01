@@ -26,9 +26,6 @@ if iscell(idxs) && (A == 0) % Print a LaTeX table of results for all obstacles.
     no = length(idxs);
     kl = length(v.ks);
     nbs = 2;
-%     if isfield(v,'nbGm')
-%         nbs = 2+v.nbGm;
-%     end
     if isfield(v,'mti')
         nbs = 2+v.mti;
     end

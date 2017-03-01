@@ -7,7 +7,6 @@ format longe
 set(0,'DefaultFigureWindowStyle','docked');
 
 ks = 2^9; % Change saving code in loop when this changes
-% ks = 2^7; % Change saving code in loop when this changes
 obsts = 5;
 obstacle = 5;
 bc = 1;
@@ -94,7 +93,8 @@ for ki = 1:kl
     % [R, sigma,obbounds] = calcCorr(par, c1, Tcor, percDecay);
     % [R, sigma,obbounds] = calcCorr(par, c1, 0.1, 1, [10, now], A1);
     
-    % figure; spectrogram(c1, round(length(c1)/16),[],[], 1/(par.obsts(1).colltau(2)-par.obsts(1).colltau(1)), 'centered'); title(['Spectrogram ' ])%num2str(bcsh)])
+    % figure; spectrogram(c1, round(length(c1)/16),[],[], 1/(par.obsts(1).colltau(2)-par.obsts(1).colltau(1)), 'centered'); 
+    % title(['Spectrogram ' ])%num2str(bcsh)])
     % figure; plot( [real(c1) imag(c1)]); legend('Re(c1)','Im(c1)')
     % v = validate(A1,nan*A1,par,v,idx)
     
@@ -133,9 +133,8 @@ for ki = 1:kl
         
         resid = cell(2,nbrefl);
         resid{1,1} = c1true1 - sum(csl1,2);
-        % figure;
-        % plot(par.obsts(1).colltau, real(csl1(:,1)) ); title('csl1 refl')
-        % hold on
+        figure; plot(par.obsts(1).colltau, real(csl1(:,1)) ); 
+        title('csl1 refl'); hold on;
         
         for refl = 2:nbrefl
             bsl1(:,refl) = -A21*csl2(:,refl-1);
@@ -150,7 +149,7 @@ for ki = 1:kl
     end
     
     V1 = Vb(:,1);
-    save('V1k9.mat', 'V1', 'par');
+    save('V1k9.mat', 'V1', 'par', 'c1');
     display(['ki = ' num2str(ki) ', now is ' datestr(now) ', expected end ' datestr(start + ...
         (now-start)*sum(ks.^2)/sum(ks(1:ki).^2) )  ]);
 end

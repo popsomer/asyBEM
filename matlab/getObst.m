@@ -189,8 +189,7 @@ function g = gradS(t)
 			g(2,:) = g(2,:) + fyd(1+j)*exp(1i*2*pi*n(1+j)*t);
 			g(2,:) = g(2,:) + fyd(M+1+j)*exp(1i*2*pi*n(M+1+j)*t);
 		end
-% 		g(1,:) = g(1,:) - imag(fxd(M+1))*sin(2*pi*n(M+1)*t); % Old
-% 		g(2,:) = g(2,:) - imag(fyd(M+1))*sin(2*pi*n(M+1)*t); % Old
+% Old version: g(1,:) = g(1,:) - imag(fxd(M+1))*sin(2*pi*n(M+1)*t);
 		g(1,:) = g(1,:) - fx(M+1)*2*pi*n(M+1)*sin(2*pi*n(M+1)*t);
 		g(2,:) = g(2,:) - fy(M+1)*2*pi*n(M+1)*sin(2*pi*n(M+1)*t);
 	end

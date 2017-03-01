@@ -86,10 +86,10 @@ for l=1:Lj
     elseif (l == Lj) % Using windows: this would need l=0 so recalculate for A+j1-2 and Lj=1
         tau = ( (A+j1-2):step:(A+j1-2+step*(length(qbf_w)-1) ) )/par.N;
         if exist('collx','var') && ~isempty(collx)
-            % if only SLP: kernelVals = wind(tau).*1i/4.*besselh(0, 1, par.k*sqrt(sum((repmat(collx,1,length(tau))-par.par(tau) ).^2, 1)) ).*par.gradnorm(tau);
+% if only SLP: kernelVals = wind(tau).*1i/4.*besselh(0, 1, par.k*sqrt(sum((repmat(collx,1,length(tau))-par.par(tau) ).^2, 1)) ).*par.gradnorm(tau);
             kernelVals = kernel(par, tau, collx, wind);
         else
-            % if only SLP: kernelVals = wind(tau).*1i/4.*besselh(0, 1, par.k*sqrt(sum((par.par(tc*ones(size(tau)))-par.par(tau) ).^2, 1)) ).*par.gradnorm(tau);
+% if only SLP: kernelVals = wind(tau).*1i/4.*besselh(0, 1, par.k*sqrt(sum((par.par(tc*ones(size(tau)))-par.par(tau) ).^2, 1)) ).*par.gradnorm(tau);
             kernelVals = kernel(par, tau, tc, wind);
         end
         row(1) = qbf_w * kernelVals.'/par.N;
