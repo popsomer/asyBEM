@@ -36,6 +36,14 @@ symbTay(:,4) = symbTay(:,3) + 2783/2520*sqrt(2)*pi^6*t1m.^6;
 symbTay(:,5) = symbTay(:,4) -358021/205632*sqrt(2)*pi^8*t1m.^8;
 % Symbolic $c_i$ & $1$  & $\sqrt{2}\pi^2$ & $\frac{-11}{12}\sqrt{2}\pi^4$ & $\frac{2783\sqrt{2}\pi^6}{2520}$ & $\frac{-358021}{205632}\sqrt{2}\pi^8$ \\
 
+% tau2 for ray that ends up at tau1=a1^2*tau1 + ... after the next reflection so that it can reach tau1 =0 =tau2 after 
+% an infinite number of reflections for |a1|<1
+infTay = d*ones(length(collsignal),5);
+infTay(:,2) = d + 1/2*pi^2*(3*(2*sqrt(2) - 3)^2 + 4*sqrt(2) - 3)*t1m.^2;
+infTay(:,3) = infTay(:,2) + ( -1/24*pi^4*(39*(2*sqrt(2) - 3)^4 + 52*(2*sqrt(2) - 3)^3 + 42*(2*sqrt(2) - 3)^2 + 104*sqrt(2) - 117)...
+    + 7*pi^2*(3*pi^2*(17*sqrt(2)- 24)*(2*sqrt(2) - 3) + pi^2*(17*sqrt(2) - 24)) )*t1m.^4;
+
+
 
 %% Calculate phitilde: extract phase from angle
 phitilde = zeros(size(signal));
@@ -60,8 +68,13 @@ set(gca,'FontSize',20)
 
 %% Plot eigenvector
 figure; 
-
-if 1
+if 0
+    % Plot infTay for all tau_1
+    V1plc8 = plot(collsignal, real(signal./exp(1i*par.k*infTay(:,3))), 'g', 'LineWidth', 2);
+    hold on
+    V1plc2 = plot(collsignal, real(signal./exp(1i*par.k*infTay(:,2))), 'r--', 'LineWidth', 2);
+    V1pl = plot(collsignal, real(signal), 'b:');
+elseif 1
     % Plot for all tau_1
     V1plc8 = plot(collsignal, real(signal./exp(1i*par.k*symbTay(:,5))), 'g', 'LineWidth', 3);
     hold on;
@@ -91,8 +104,11 @@ if 1
     loglog(abs(collsignal(rang)), (phitilde(rang) -symbTay(rang,3))./phitilde(rang), 'c--', lws, lw);
     loglog(abs(collsignal(rang)), abs(symbTay(rang,4) -phitilde(rang))./phitilde(rang), 'y', lws, lw);
     loglog(abs(collsignal(rang)), (phitilde(rang) -symbTay(rang,5))./phitilde(rang), 'k:', lws, lw);
+    
+    loglog(abs(collsignal(rang)), abs(-infTay(rang,2) +phitilde(rang))./phitilde(rang), 'k', lws, lw);
+    loglog(abs(collsignal(rang)), abs(phitilde(rang) -infTay(rang,3))./phitilde(rang), 'g--', lws, lw);
 else
-    figure
+    figure;
     semilogy(collsignal, (zeta - phitilde)./(phitilde), 'b');
     hold on;
     semilogy(collsignal, abs(xi-phitilde)./phitilde, 'r');
@@ -106,7 +122,8 @@ end
 legend({'$(\zeta -\tilde{\phi})/\tilde{\phi}$', '$(\tilde{\phi}-\xi)/\tilde{\phi}$',...
     '$(\tilde{\phi} -c_0)/\tilde{\phi}$','$|c_0+c_2\tau_1^2-\tilde{\phi}|/\tilde{\phi}$',...
     '$(\tilde{\phi} -\sum_{i=0}^4 c_i \tau_1^i)/\tilde{\phi}$','$|-\tilde{\phi}+\sum_{i=0}^6 c_i \tau_1^i|/\tilde{\phi}$',...
-    '$(\tilde{\phi} -\sum_{i=0}^8 c_i \tau_1^i)/\tilde{\phi}$'}, 'interpreter', 'latex', 'FontSize', 15);
+    '$(\tilde{\phi} -\sum_{i=0}^8 c_i \tau_1^i)/\tilde{\phi}$','$|e_0+e_2\tau_1^2-\tilde{\phi}|/\tilde{\phi}$',...
+    '$|e_0+e_2\tau_1^2 +e_4\tau_1^4 -\tilde{\phi}|/\tilde{\phi}$'}, 'interpreter', 'latex', 'FontSize', 15);
 xlabel('\tau_1')
 set(gca,'FontSize',13)
 ylabel('Relative error')
@@ -134,24 +151,40 @@ nr = 1e3;
 cl1 = linspace(0,1/2,nr);
 h = cl1(2)-cl1(1);
 clos = @(phi,tau2, shft) interp1(cl1-shft*h, phi, tau2);
-dist = @(tau2) sqrt( (c1x-c2x+r1*cos(2*pi*cl1)-r1*cos(2*pi*tau2) ).^2 + (c1y-c2y+r2*sin(2*pi*cl1)-r2*sin(2*pi*tau2) ).^2 );
+dist = @(tau2) sqrt( (c1x-c2x+r1*cos(2*pi*cl1)-r1*cos(2*pi*tau2) ).^2 + (c1y-c2y+r2*sin(2*pi*cl1)-r2*sin(2*pi*tau2) ).^2 ); % Other parametrisation
+sys = 0;
 
-F = @(x) [ (x(1:nr)-dist(x(nr+1:end))-clos(x(1:nr), x(nr+1:end)-1/2, 0)-d ), ...
-    ((clos(x(1:nr),x(nr+1:end)-1/2, 1)-clos(x(1:nr),x(nr+1:end)-1/2, 0))/h + ...
-    2*pi*(r1*sin(2*pi*x(nr+1:end) ).*(c1x-c2x+r1*cos(2*pi*cl1)-r1*cos(2*pi*x(nr+1:end))) ...
-    -r2*cos(2*pi*x(nr+1:end)).*(c1y-c2y+r2*sin(2*pi*cl1)+r2*sin(2*pi*x(nr+1:end))) )./dist(x(nr+1:end) ) ) ];
+if abs(sys) == 1 % System of equations
+    F = @(x) [ (x(1:nr)-dist(x(nr+1:end))-clos(x(1:nr), x(nr+1:end)-1/2, 0)-d ), ...
+        ((clos(x(1:nr),x(nr+1:end)-1/2, 1)-clos(x(1:nr),x(nr+1:end)-1/2, 0))/h + ...
+        2*pi*(r1*sin(2*pi*x(nr+1:end) ).*(c1x-c2x+r1*cos(2*pi*cl1)-r1*cos(2*pi*x(nr+1:end))) ...
+        -r2*cos(2*pi*x(nr+1:end)).*(c1y-c2y+r2*sin(2*pi*cl1)+r2*sin(2*pi*x(nr+1:end))) )./dist(x(nr+1:end) ) ) ];
+    
+    x0 = [sqrt( sum( (par.obsts(1).par(cl1) - repmat(par.obsts(2).par(0.75), 1, length(cl1) ) ).^2, 1) ), 0.75*ones(size(cl1))];
+elseif abs(sys) == 2 % Only tau_2
+    F = @(x) [(atan((sin(2*pi*x(1:nr))/2 -sin(2*pi*x(nr+1:end))/2)/(2-cos(2*pi*x(1:nr))/2-cos(2*pi*x(nr+1:end))/2) ) + ...
+        atan( (sin(2*pi*x(1:nr))/2 -sin(2*pi*cl1)/2)/(2-cos(2*pi*x(1:nr))/2-cos(2*pi*cl1)/2) ) + 4*pi*x), clos(x(1:nr), x(1:nr), 0)];
+    x0 = [cl1/6, cl1/36];
+elseif abs(sys) == 3 % Only tau_2
+    F = @(x) atan((sin(2*pi*x)/2 -sin(2*pi*clos(x,x,0))/2)/(2-cos(2*pi*x)/2-cos(2*pi*clos(x,x,0))/2) ) + ...
+        atan( (sin(2*pi*x)/2 -sin(2*pi*cl1)/2)/(2-cos(2*pi*x)/2-cos(2*pi*cl1)/2) ) + 4*pi*x;
+    x0 = cl1/6;
+end
 
-x0 = [sqrt( sum( (par.obsts(1).par(cl1) - repmat(par.obsts(2).par(0.75), 1, length(cl1) ) ).^2, 1) ), 0.75*ones(size(cl1))];
-
-if 0 % Using fsolve
+if sys > 0 % Using fsolve
     opto = optimoptions('fsolve', 'Display', 'iter-detailed', 'FunctionTolerance', 1e-2, 'OptimalityTolerance', 1e-3, 'StepTolerance', 1e-12);
     [X, FVAL] = fsolve(F, x0, opto);
     
-    trph = sqrt( sum( (par.obsts(obst).par(cl1) - repmat(par.obsts(2).par(0.75), 1, nr) ).^2, 1) );
-    figure; plot(cl1, X(1:nr)- trph); title('diff \phi')
-    figure; plot(cl1, X((nr+1):end)); title('\tau_2')
+    if sys == 1
+        trph = sqrt( sum( (par.obsts(obst).par(cl1) - repmat(par.obsts(2).par(0.75), 1, nr) ).^2, 1) );
+        figure; plot(cl1, X(1:nr)- trph); title('diff \phi')
+        figure; plot(cl1, X((nr+1):end)); title('\tau_2')
+    else
+        figure; plot(cl1,X(1:nr)); title('\tau_2 from an infinite number of reflections')
+        figure; plot(cl1,X(nr+1:end));
+    end
     
-elseif 0 % Iterative solve
+elseif sys < 0 % Iterative solve
     figure; subplot(1,2,1); plot(x0(1:nr)); hold on; subplot(1,2,2); plot(x0(nr+1:end)); hold on;
     x = F(x0); subplot(1,2,1); plot(x(1:nr)); subplot(1,2,2); plot(x(nr+1:end));
     x = F(x); subplot(1,2,1); plot(x(1:nr)); subplot(1,2,2); plot(x(nr+1:end));
