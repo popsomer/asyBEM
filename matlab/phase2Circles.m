@@ -148,7 +148,7 @@ phi = dist(tau,chi) - 1;
 prev = tau;
 chiRefl = chi;
 
-nbRefl = 6;
+nbRefl = 10;
 cfs = zeros(length(ci),nbRefl+1);
 for i = 0:length(ci)-1
     cfs(i+1,1) = evalCh(diff(phi,i),0)/gamma(i+1);
