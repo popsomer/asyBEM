@@ -1,4 +1,5 @@
 % Make plots of the eigenvector, phitilde and convergence plots for two circles.
+% addpath('/dir/to/chebfun')
 
 %% Loading saved eigenvector
 clearvars
@@ -7,47 +8,64 @@ format longe
 set(0,'DefaultFigureWindowStyle','docked');
 
 load V1k9; % Loads V1l and par
-obst = 1;
 
 % Make sure tau_1 = 0 is in the middle
-l = length(par.obsts(obst).colltau)/2;
+l = length(par.obsts(1).colltau)/2;
 signal = [V1(l+1:end); V1(1:l)];
-collsignal = [(par.obsts(obst).colltau(l+1:end)-1), par.obsts(obst).colltau(1:l)];
+collsignal = [(par.obsts(1).colltau(l+1:end)-1), par.obsts(1).colltau(1:l)];
 
-rang = find(abs(collsignal) < 0.26);
+dom = [-1/5,1/5]; % A domain smaller than the support of the mode such that the inverse of chi exists
+rang = find(abs(collsignal) < 1/5);
+tau = chebfun('tau',dom);
+evalCh = @(f,g) f(g);
 
 
 %% Geometric attempts for the phase
-zeta = transpose(sqrt( sum( (par.obsts(obst).par(collsignal) - repmat(par.obsts(3-obst).par(0), 1, ...
-    length(collsignal) ) ).^2, 1) ) );
 
 c1x = 0; c1y = 0; c2x = 0; c2y = 2; r1 = 0.5; r2 = 0.5; d = 1;
-tau2 = asin( (cos(2*pi*collsignal) -4)/2./sin(2*pi*collsignal) + ...
-    (-1).^(collsignal < 0)./2.*sqrt((cos(2*pi*collsignal) -4).^2./sin(2*pi*collsignal).^2 +4) )/2/pi;
-xi = transpose(sqrt( sum( (par.obsts(1).par(collsignal) - par.obsts(2).par(tau2) ).^2, 1) ) );
+if 1
+    zeta = transpose(sqrt( sum( (par.obsts(1).par(collsignal) - repmat(par.obsts(2).par(0), 1, ...
+        length(collsignal) ) ).^2, 1) ) );
+    tau2Xi = asin( (cos(2*pi*collsignal) -4)/2./sin(2*pi*collsignal) + ...
+        (-1).^(collsignal < 0)./2.*sqrt((cos(2*pi*collsignal) -4).^2./sin(2*pi*collsignal).^2 +4) )/2/pi;
+    xi = transpose(sqrt( sum( (par.obsts(1).par(collsignal) - par.obsts(2).par(tau2Xi) ).^2, 1) ) );
+else
+    % Chebfun approximation
+    zeta = sqrt((evalCh(par.obsts(1).par(tau), 1) - evalCh(par.obsts(2).par(0), 1) ).^2 + ...
+        (evalCh(par.obsts(1).par(tau), 2) - evalCh(par.obsts(2).par(0), 2) ).^2);
+    zeta = zeta.blocks{1,1};
+    
+    tau2XiPts = asin( (cos(2*pi*collsignal) -4)/2./sin(2*pi*collsignal) + ...
+        (-1).^(collsignal < 0)./2.*sqrt((cos(2*pi*collsignal) -4).^2./sin(2*pi*collsignal).^2 +4) )/2/pi;
+    tau2XiPts(isnan(tau2XiPts)) = 0; % This should be at collsignal == 0
+    tau2Xi = chebfun(transpose(tau2XiPts), 'equi');
+    tau2Xi.domain = dom;
+    tau2Xi.funs{1,1}.domain = tau2Xi.domain;
+    xi = sqrt((evalCh(par.obsts(1).par(tau), 1) - sin(2*pi*tau2Xi)/2 ).^2 + ...
+        (evalCh(par.obsts(1).par(tau), 2) - (2 -cos(2*pi*tau2Xi)/2) ).^2);
+    xi = xi.blocks{1,1};
+end
 
 
 %% Symbolic results for the phase
-t1m = transpose(collsignal);
-symbTay = d*ones(length(collsignal), 5);
-symbTay(:,2) = d + sqrt(2)*pi^2*t1m.^2;
-symbTay(:,3) = symbTay(:,2) -11/12*sqrt(2)*pi^4*t1m.^4;
-symbTay(:,4) = symbTay(:,3) + 2783/2520*sqrt(2)*pi^6*t1m.^6;
-symbTay(:,5) = symbTay(:,4) -358021/205632*sqrt(2)*pi^8*t1m.^8;
+ci = [d, 0, (sqrt(2)*pi^2), 0, (-11/12*sqrt(2)*pi^4), 0, (2783/2520*sqrt(2)*pi^6), 0, (-358021/205632*sqrt(2)*pi^8)];
 % Symbolic $c_i$ & $1$  & $\sqrt{2}\pi^2$ & $\frac{-11}{12}\sqrt{2}\pi^4$ & $\frac{2783\sqrt{2}\pi^6}{2520}$ & $\frac{-358021}{205632}\sqrt{2}\pi^8$ \\
+symbTay0 = ci(1) +0*tau;
+symbTay2 = ci(1) + ci(3)*tau.^2;
+symbTay4 = symbTay2 +ci(5)*tau.^4;
+symbTay6 = symbTay4 + ci(7)*tau.^6;
+symbTay8 = symbTay6 + ci(9)*tau.^8;
 
 % tau2 for ray that ends up at tau1=a1^2*tau1 + ... after the next reflection so that it can reach tau1 =0 =tau2 after 
-% an infinite number of reflections for |a1|<1
-infTay = d*ones(length(collsignal),5);
-infTay(:,2) = d + 1/2*pi^2*(3*(2*sqrt(2) - 3)^2 + 4*sqrt(2) - 3)*t1m.^2;
-infTay(:,3) = infTay(:,2) + ( -1/24*pi^4*(39*(2*sqrt(2) - 3)^4 + 52*(2*sqrt(2) - 3)^3 + 42*(2*sqrt(2) - 3)^2 + 104*sqrt(2) - 117)...
-    + 7*pi^2*(3*pi^2*(17*sqrt(2)- 24)*(2*sqrt(2) - 3) + pi^2*(17*sqrt(2) - 24)) )*t1m.^4;
-
+% an infinite number of reflections for |a1|<1, infTay is the series of the distance to the next SP
+infTay0 = d +0*tau;
+infTay2 = d + 1/2*pi^2*(3*(2*sqrt(2) - 3)^2 + 4*sqrt(2) - 3)*tau.^2;
+infTay4 = infTay2 + ( -1/24*pi^4*(39*(2*sqrt(2) - 3)^4 + 52*(2*sqrt(2) - 3)^3 + 42*(2*sqrt(2) - 3)^2 + 104*sqrt(2) - 117)...
+    + 7*pi^2*(3*pi^2*(17*sqrt(2)- 24)*(2*sqrt(2) - 3) + pi^2*(17*sqrt(2) - 24)) )*tau.^4;
 
 
 %% Calculate phitilde: extract phase from angle
 phitilde = zeros(size(signal));
-obst = 1;
 
 closest = find(abs(collsignal-0) == min(abs(collsignal-0)));
 phitilde(closest) = 1;
@@ -58,75 +76,17 @@ for i = (closest+1):length(V1)
     phitilde(i) = phitilde(i-1) +(angle(signal(i)) - angle(signal(i-1)))/par.k -2*pi/par.k*floor( (angle(signal(i)) -angle(signal(i-1)))/2/pi);
 end
 
-figure; plot(collsignal(rang), phitilde(rang), 'g'); hold on
-plot(collsignal(rang), zeta(rang), 'b--');
-plot(collsignal(rang), xi(rang), 'r:');
-legend({'$\tilde{\phi}$', '$\zeta$', '$\xi$'}, 'interpreter', 'latex', 'FontSize', 23);
-xlabel('\tau_1')
-set(gca,'FontSize',20)
-
 
 %% Plot eigenvector
-figure; 
-if 0
-    % Plot infTay for all tau_1
-    V1plc8 = plot(collsignal, real(signal./exp(1i*par.k*infTay(:,3))), 'g', 'LineWidth', 2);
-    hold on
-    V1plc2 = plot(collsignal, real(signal./exp(1i*par.k*infTay(:,2))), 'r--', 'LineWidth', 2);
-    V1pl = plot(collsignal, real(signal), 'b:');
-elseif 1
-    % Plot for all tau_1
-    V1plc8 = plot(collsignal, real(signal./exp(1i*par.k*symbTay(:,5))), 'g', 'LineWidth', 3);
-    hold on;
-    V1plc2 = plot(collsignal, real(signal./exp(1i*par.k*symbTay(:,2))), 'r--', 'LineWidth', 2);
-    V1pl = plot(collsignal, real(signal), 'b:');
-else
-    % Plot only the region where the circles can approximately `see' each other
-    V1plc8 = plot(collsignal(rang), real(signal(rang)./exp(1i*par.k*symbTay(rang,5))), 'g', 'LineWidth', 3);
-    hold on;
-    V1plc2 = plot(collsignal(rang), real(signal(rang)./exp(1i*par.k*symbTay(rang,2))), 'r--', 'LineWidth', 2);
-    V1pl = plot(collsignal(rang), real(signal(rang)), 'b:');
-end
-
+figure;
+V1plc8 = plot(collsignal, real(transpose(signal)./exp(1i*par.k*symbTay8(collsignal) )), 'g', 'LineWidth', 3);
+hold on;
+V1plc2 = plot(collsignal, real(transpose(signal)./exp(1i*par.k*symbTay2(collsignal))), 'r--', 'LineWidth', 2);
+V1pl = plot(collsignal, real(transpose(signal)), 'b:');
 legend([V1pl, V1plc2, V1plc8], {'Re($V_{j,1})$', 'Re$\{V_{j,1}/\exp(ik[c_0+c_2\tau^2])\}$', 'Re$\{V_{j,1}/\exp(ik\sum_{i=0}^8 c_i \tau_1^i)\}$'},...
     'interpreter', 'latex', 'FontSize', 15);
-
-%% Plot convergence
-lws = 'LineWidth';
-lw = 2;
-if 1
-    figure; 
-    loglog(abs(collsignal(rang)), (zeta(rang) -phitilde(rang))./phitilde(rang), 'b--', lws, lw);
-    hold on;
-    loglog(abs(collsignal(rang)), (phitilde(rang) -xi(rang))./phitilde(rang), 'r:', lws, lw);
-    loglog(abs(collsignal(rang)), (phitilde(rang) -symbTay(rang,1))./phitilde(rang), 'g', lws, lw);
-    loglog(abs(collsignal(rang)), abs(-symbTay(rang,2) +phitilde(rang))./phitilde(rang), 'm-.', lws, lw);
-    loglog(abs(collsignal(rang)), (phitilde(rang) -symbTay(rang,3))./phitilde(rang), 'c--', lws, lw);
-    loglog(abs(collsignal(rang)), abs(symbTay(rang,4) -phitilde(rang))./phitilde(rang), 'y', lws, lw);
-    loglog(abs(collsignal(rang)), (phitilde(rang) -symbTay(rang,5))./phitilde(rang), 'k:', lws, lw);
-    
-    loglog(abs(collsignal(rang)), abs(-infTay(rang,2) +phitilde(rang))./phitilde(rang), 'k', lws, lw);
-    loglog(abs(collsignal(rang)), abs(phitilde(rang) -infTay(rang,3))./phitilde(rang), 'g--', lws, lw);
-else
-    figure;
-    semilogy(collsignal, (zeta - phitilde)./(phitilde), 'b');
-    hold on;
-    semilogy(collsignal, abs(xi-phitilde)./phitilde, 'r');
-    semilogy(collsignal, (phitilde -symbTay(:,1))./phitilde, 'g');
-    semilogy(collsignal, abs(-symbTay(:,2)+phitilde)./phitilde, 'm');
-    semilogy(collsignal, abs(symbTay(:,3)-phitilde)./phitilde, 'c');
-    semilogy(collsignal, abs(symbTay(:,4)-phitilde)./phitilde, 'y');
-    semilogy(collsignal, abs(symbTay(:,5)-phitilde)./phitilde, 'k');
-end
-
-legend({'$(\zeta -\tilde{\phi})/\tilde{\phi}$', '$(\tilde{\phi}-\xi)/\tilde{\phi}$',...
-    '$(\tilde{\phi} -c_0)/\tilde{\phi}$','$|c_0+c_2\tau_1^2-\tilde{\phi}|/\tilde{\phi}$',...
-    '$(\tilde{\phi} -\sum_{i=0}^4 c_i \tau_1^i)/\tilde{\phi}$','$|-\tilde{\phi}+\sum_{i=0}^6 c_i \tau_1^i|/\tilde{\phi}$',...
-    '$(\tilde{\phi} -\sum_{i=0}^8 c_i \tau_1^i)/\tilde{\phi}$','$|e_0+e_2\tau_1^2-\tilde{\phi}|/\tilde{\phi}$',...
-    '$|e_0+e_2\tau_1^2 +e_4\tau_1^4 -\tilde{\phi}|/\tilde{\phi}$'}, 'interpreter', 'latex', 'FontSize', 15);
-xlabel('\tau_1')
-set(gca,'FontSize',13)
-ylabel('Relative error')
+xlabel('\tau_{1,j}');
+ylabel('Mode');
 
 
 %% Compute the extrapolated reference result
@@ -146,49 +106,123 @@ if 0
 end
 
 
-%% Attempts to solve the nonlinear system of PDEs
-nr = 1e3;
-cl1 = linspace(0,1/2,nr);
-h = cl1(2)-cl1(1);
-clos = @(phi,tau2, shft) interp1(cl1-shft*h, phi, tau2);
-dist = @(tau2) sqrt( (c1x-c2x+r1*cos(2*pi*cl1)-r1*cos(2*pi*tau2) ).^2 + (c1y-c2y+r2*sin(2*pi*cl1)-r2*sin(2*pi*tau2) ).^2 ); % Other parametrisation
-sys = 0;
+%% Solve the nonlinear equation using chebfun
+chi = (3-2*sqrt(2))*tau; % Initial guess
+F = @(g, tau1) 4*pi*g(tau1) + atan( (0.5*sin(2*pi*g(tau1)) -0.5*sin(2*pi*tau1)   )./(1+2*0.5 -0.5*cos(2*pi*g(tau1)) -0.5*cos(2*pi*tau1) ) ) + ...
+    atan((0.5*sin(2*pi*g(tau1)) -0.5*sin(2*pi*g(g(tau1))) )./(1+2*0.5 -0.5*cos(2*pi*g(tau1)) -0.5*cos(2*pi*g(g(tau1)) )) );
 
-if abs(sys) == 1 % System of equations
-    F = @(x) [ (x(1:nr)-dist(x(nr+1:end))-clos(x(1:nr), x(nr+1:end)-1/2, 0)-d ), ...
-        ((clos(x(1:nr),x(nr+1:end)-1/2, 1)-clos(x(1:nr),x(nr+1:end)-1/2, 0))/h + ...
-        2*pi*(r1*sin(2*pi*x(nr+1:end) ).*(c1x-c2x+r1*cos(2*pi*cl1)-r1*cos(2*pi*x(nr+1:end))) ...
-        -r2*cos(2*pi*x(nr+1:end)).*(c1y-c2y+r2*sin(2*pi*cl1)+r2*sin(2*pi*x(nr+1:end))) )./dist(x(nr+1:end) ) ) ];
-    
-    x0 = [sqrt( sum( (par.obsts(1).par(cl1) - repmat(par.obsts(2).par(0.75), 1, length(cl1) ) ).^2, 1) ), 0.75*ones(size(cl1))];
-elseif abs(sys) == 2 % Only tau_2
-    F = @(x) [(atan((sin(2*pi*x(1:nr))/2 -sin(2*pi*x(nr+1:end))/2)/(2-cos(2*pi*x(1:nr))/2-cos(2*pi*x(nr+1:end))/2) ) + ...
-        atan( (sin(2*pi*x(1:nr))/2 -sin(2*pi*cl1)/2)/(2-cos(2*pi*x(1:nr))/2-cos(2*pi*cl1)/2) ) + 4*pi*x), clos(x(1:nr), x(1:nr), 0)];
-    x0 = [cl1/6, cl1/36];
-elseif abs(sys) == 3 % Only tau_2
-    F = @(x) atan((sin(2*pi*x)/2 -sin(2*pi*clos(x,x,0))/2)/(2-cos(2*pi*x)/2-cos(2*pi*clos(x,x,0))/2) ) + ...
-        atan( (sin(2*pi*x)/2 -sin(2*pi*cl1)/2)/(2-cos(2*pi*x)/2-cos(2*pi*cl1)/2) ) + 4*pi*x;
-    x0 = cl1/6;
+dF = @(g, tau1, dg) 4*pi + 1./(1+ ((0.5*sin(2*pi*g(tau1)) -0.5*sin(2*pi*tau1) )./( 1+2*0.5 -0.5*cos(2*pi*g(tau1)) -0.5*cos(2*pi*tau1) ) ).^2).*...
+    (0.5*2*pi.*cos(2*pi*g(tau1)).*( 1+2*0.5 -0.5*cos(2*pi*g(tau1)) -0.5*cos(2*pi*tau1) )  ...
+    - (0.5*sin(2*pi*g(tau1)) -0.5*sin(2*pi*tau1) ).*(-0.5)*(-2*pi).*sin(2*pi*g(tau1))  )./( 1+2*0.5 -0.5*cos(2*pi*g(tau1)) -0.5*cos(2*pi*tau1) ).^2 + ...
+    1./(1 +((0.5*sin(2*pi*g(tau1)) -0.5*sin(2*pi*g(g(tau1))) )./(1+2*0.5 -0.5*cos(2*pi*g(tau1))  -0.5*cos(2*pi*g(g(tau1)) )) ).^2).*...
+    ( (0.5*2*pi*cos(2*pi*g(tau1)) -0.5*2*pi*cos(2*pi*g(g(tau1))).*dg(g) ).*(1+2*0.5 -0.5*cos(2*pi*g(tau1))  -0.5*cos(2*pi*g(g(tau1)) )) -...
+    (0.5*sin(2*pi*g(tau1)) -0.5*sin(2*pi*g(g(tau1))) ).*( 0.5*2*pi*sin(2*pi*g(tau1)) +0.5*2*pi*sin(2*pi*g(g(tau1)) ).*dg(g)  )...
+    )./(1+2*0.5 -0.5*cos(2*pi*g(tau1))  -0.5*cos(2*pi*g(g(tau1)) )).^2;
+
+nbIt = 6;
+normFchi = zeros(nbIt+1,1);
+normFchi(1) = norm(F(chi,tau));
+for r = 1:nbIt
+    chi = chi -F(chi,tau)./dF(chi,tau,diff(chi));
+    normFchi(r+1) = norm(F(chi,tau));
 end
+normFchi % Machine precision after 6 iterations
 
-if sys > 0 % Using fsolve
-    opto = optimoptions('fsolve', 'Display', 'iter-detailed', 'FunctionTolerance', 1e-2, 'OptimalityTolerance', 1e-3, 'StepTolerance', 1e-12);
-    [X, FVAL] = fsolve(F, x0, opto);
-    
-    if sys == 1
-        trph = sqrt( sum( (par.obsts(obst).par(cl1) - repmat(par.obsts(2).par(0.75), 1, nr) ).^2, 1) );
-        figure; plot(cl1, X(1:nr)- trph); title('diff \phi')
-        figure; plot(cl1, X((nr+1):end)); title('\tau_2')
-    else
-        figure; plot(cl1,X(1:nr)); title('\tau_2 from an infinite number of reflections')
-        figure; plot(cl1,X(nr+1:end));
+endI = 9;
+as =  [0, (3-2*sqrt(2)), 0, 7*pi^2*(24-17*sqrt(2)), 0, -1/84*pi^4*(1205811*sqrt(2) - 1705312), 0, ...
+    -1/128520*pi^6*(289615597399*sqrt(2) - 409578202752), zeros(1, endI-7)];
+converAi = zeros(endI+1,4);
+for i = 0:endI
+    converAi(i+1,:) = [i, abs((evalCh(diff(chi,i), 0)/gamma(i+1)- as(i+1))/as(i+1)), evalCh(diff(chi,i), 0), as(i+1)];
+end
+converAi % Compare chi to its series expansion
+
+
+%% Compute the phase
+tau2 = chebfun('tau2',dom);
+dist = chebfun2( @(tau,tau2) sqrt( (0.5*sin(2*pi*tau2) -0.5*sin(2*pi*tau) ).^2 + (1+2*0.5 -0.5*cos(2*pi*tau2) -0.5*cos(2*pi*tau) ).^2 ), ...
+    [-1, 1, -1, 1]/5);
+ddist = diffy(dist);
+
+phi = dist(tau,chi) - 1;
+prev = tau;
+chiRefl = chi;
+
+nbRefl = 6;
+cfs = zeros(length(ci),nbRefl+1);
+for i = 0:length(ci)-1
+    cfs(i+1,1) = evalCh(diff(phi,i),0)/gamma(i+1);
+end
+conver = zeros(1,nbRefl+1);
+conver(1) = norm(phi);
+for r = 1:nbRefl
+    prev = chiRefl;
+    chiRefl = chi(chiRefl);
+    phi = phi + dist(prev,chiRefl) -1;
+    for i = 0:length(ci)-1
+        cfs(i+1,r+1) = evalCh(diff(phi,i),0)/gamma(i+1);
     end
-    
-elseif sys < 0 % Iterative solve
-    figure; subplot(1,2,1); plot(x0(1:nr)); hold on; subplot(1,2,2); plot(x0(nr+1:end)); hold on;
-    x = F(x0); subplot(1,2,1); plot(x(1:nr)); subplot(1,2,2); plot(x(nr+1:end));
-    x = F(x); subplot(1,2,1); plot(x(1:nr)); subplot(1,2,2); plot(x(nr+1:end));
-    x = F(x); subplot(1,2,1); plot(x(1:nr)); subplot(1,2,2); plot(x(nr+1:end));
-    title('\tau_2'); legend('x0','x1', 'x2', 'x3');
-    subplot(1,2,1); title('\phi(\tau_1)'); legend('x0','x1', 'x2', 'x3');
+    conver(r+1) = norm( dist(prev,chiRefl) -1);
 end
+phi = phi + ci(1);
+conver % Show the difference in successive approximations
+converCi = (cfs - repmat(transpose(ci), 1, nbRefl+1))./repmat(transpose(ci), 1, nbRefl+1) % Show the convergence to the series expansion coefficients
+
+phiInt = evalCh(cumsum(-ddist(tau,chi).*diff(chi)), inv(chi));
+phiInt = phiInt - phiInt(0) + ci(1);
+phiRestr = restrict(phi, phiInt.domain);
+
+
+%% Plot phi
+figure; plot(phi, 'g'); hold on
+plot(collsignal(rang), zeta(rang), 'b--');
+plot(collsignal(rang), xi(rang), 'r:');
+
+% Issue 2061 on github/chebfun
+h = zeros(3, 1);
+h(1) = plot(NaN,NaN,'g');
+h(2) = plot(NaN,NaN,'b--');
+h(3) = plot(NaN,NaN,'r:');
+legend(h,{'$\tilde{\phi}$', '$\zeta$', '$\xi$'}, 'interpreter', 'latex', 'FontSize', 23);
+xlabel('\tau_1')
+set(gca,'FontSize',20)
+
+
+%% Plot the convergence
+lws = 'LineWidth';
+lw = 2;
+chr = [1e-4, max(dom)];
+
+figure;
+loglog(abs(collsignal(rang)), (zeta(rang) -phitilde(rang))./phitilde(rang), 'b', lws, lw);
+hold on;
+loglog(abs(collsignal(rang)), (phitilde(rang) -xi(rang))./phitilde(rang), 'r:', lws, lw);
+loglog((phi -symbTay0)./phi, chr, 'g', lws, lw);
+loglog((symbTay2 -phi)./phi, chr, 'm-.', lws, lw);
+loglog((phi -symbTay4)./phi, chr, 'c--', lws, lw);
+loglog(abs(symbTay6 -phi)./phi, chr, 'y', lws, lw);
+loglog(abs(phi -symbTay8)./phi, chr, 'k:', lws, lw);
+
+loglog(abs(collsignal(rang)), abs(transpose(phitilde(rang)) -phi(collsignal(rang)))./phi(collsignal(rang)), 'k', lws, lw);
+loglog(abs(phiRestr - phiInt)./phiRestr, 'g--', lws, lw);
+
+h = zeros(9, 1);
+h(1) = plot(NaN,NaN,'g');
+h(2) = plot(NaN,NaN,'b');
+h(3) = plot(NaN,NaN,'r:');
+h(4) = plot(NaN,NaN,'k');
+h(5) = plot(NaN,NaN,'m-.');
+h(6) = plot(NaN,NaN,'c--');
+h(7) = plot(NaN,NaN,'y');
+h(8) = plot(NaN,NaN,'k:');
+h(9) = plot(NaN,NaN,'g--');
+legend(h, {'$(\phi -c_0)/\phi$', '$(\zeta -\phi)/\phi$', '$(\phi-\xi)/\phi$',...
+    '$|\phi-\tilde{\phi}|/\phi$', '$(c_0+c_2\tau_1^2-\phi)/\phi$',...
+    '$(\phi -\sum_{i=0}^4 c_i \tau_1^i)/\phi$','$|-\phi+\sum_{i=0}^6 c_i \tau_1^i|/\phi$',...
+    '$|\phi -\sum_{i=0}^8 c_i \tau_1^i|/\phi$',...
+    '$|\phi + \int \delta''(\tau_1,\chi) \chi'' d\tau_1|/\tilde{\phi}$'}, 'interpreter', 'latex', 'FontSize', 15);
+ylim([eps,1]);
+xlim(chr);
+xlabel('\tau');
+set(gca,'FontSize',13);
+ylabel('Relative error');
