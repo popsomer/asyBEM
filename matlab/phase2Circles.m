@@ -84,10 +84,10 @@ hold on;
 V1plc2 = plot(collsignal, real(transpose(signal)./exp(1i*par.k*symbTay2(collsignal))), 'r--', 'LineWidth', 2);
 V1pl = plot(collsignal, real(transpose(signal)), 'b:');
 legend([V1pl, V1plc2, V1plc8], {'Re($V_{j,1})$', 'Re$\{V_{j,1}/\exp(ik[c_0+c_2\tau^2])\}$', 'Re$\{V_{j,1}/\exp(ik\sum_{i=0}^8 c_i \tau_1^i)\}$'},...
-    'interpreter', 'latex', 'FontSize', 15);
+    'interpreter', 'latex', 'FontSize', 20); %15);
 xlabel('\tau_{1,j}');
 ylabel('Mode');
-
+set(gca, 'FontSize', 20);
 
 %% Compute the extrapolated reference result
 if 0
@@ -220,9 +220,11 @@ legend(h, {'$(\phi -c_0)/\phi$', '$(\zeta -\phi)/\phi$', '$(\phi-\xi)/\phi$',...
     '$|\phi-\tilde{\phi}|/\phi$', '$(c_0+c_2\tau_1^2-\phi)/\phi$',...
     '$(\phi -\sum_{i=0}^4 c_i \tau_1^i)/\phi$','$|-\phi+\sum_{i=0}^6 c_i \tau_1^i|/\phi$',...
     '$|\phi -\sum_{i=0}^8 c_i \tau_1^i|/\phi$',...
-    '$|\phi + \int \delta''(\tau_1,\chi) \chi'' d\tau_1|/\tilde{\phi}$'}, 'interpreter', 'latex', 'FontSize', 15);
+    '$|\phi + \int \delta''(\tau_1,\chi) \chi'' d\tau_1|/\phi$'}, 'interpreter', 'latex', ...
+    'FontSize', 20, 'Location', 'best'); %'southeastoutside');
+%     '$|\phi + \int \delta''(\tau_1,\chi) \chi'' d\tau_1|/\tilde{\phi}$'}, 'interpreter', 'latex', 'FontSize', 15);
 ylim([eps,1]);
 xlim(chr);
 xlabel('\tau');
-set(gca,'FontSize',13);
+set(gca,'FontSize', 20); %13);
 ylabel('Relative error');
