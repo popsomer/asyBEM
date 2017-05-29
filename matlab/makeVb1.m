@@ -6,15 +6,25 @@ close all
 format longe
 set(0,'DefaultFigureWindowStyle','docked');
 
-ks = 2^9; % Change saving code in loop when this changes
-obsts = 5;
-obstacle = 5;
+% ks = 2^9; 
+ks = 2^7;
+% obsts = 5;
+% obstacle = 5; % Two circles
+% obstacle = 12; % Three circles
+obstacle = 13; % Ellipse and near-convex
+if 0 % Three circles switched
+    obstacle = 12; par = getObst(obstacle);
+    tmppar = par.obsts(2);
+    par.obsts(2) = par.obsts(3);
+    par.obsts(3) = tmppar;
+end
+
 bc = 1;
 % bcsh = pi/2; % shift in boundary condition
 
-printtoc = 3;
+printtoc = 10;
 kl = length(ks);
-nbOb = length(obsts);
+nbOb = 1; %length(obsts);
 
 avm = 100; % Number of random taus to average BC over
 v = struct('avm', avm, 'taus', rand(avm,1), 'errBCavm', zeros(nbOb*kl,2), 'errSol', zeros(nbOb*kl,2),  ...
@@ -24,12 +34,13 @@ v = struct('avm', avm, 'taus', rand(avm,1), 'errBCavm', zeros(nbOb*kl,2), 'errSo
 start = now;
 
 for ki = 1:kl
-    if obstacle == 11
-        par = getObst(obstacle, rx); % Reset par
-    else
-        par = getObst(obstacle); % Reset par
-        rx = 0.5;
-    end
+    par = getObst(obstacle); % Reset par
+%     if obstacle == 11
+%         par = getObst(obstacle, rx); % Reset par
+%     else
+%         par = getObst(obstacle); % Reset par
+%         rx = 0.5;
+%     end
     par.k = ks(ki);
     par.N = 0;
     par.r = zeros(2,length(par.obsts)); % ranges
@@ -98,15 +109,39 @@ for ki = 1:kl
     % figure; plot( [real(c1) imag(c1)]); legend('Re(c1)','Im(c1)')
     % v = validate(A1,nan*A1,par,v,idx)
     
-    
+    display('aspodijf');
     %% Eigenvalues big reflection matrix
-    
-    A11 = A1(1:size(A1,1)/2, 1:size(A1,2)/2);
-    A21 = A1(1:size(A1,1)/2, (1+size(A1,2)/2):end); % Action of density of obst 2 on location of obst 1
-    A12 = A1((size(A1,1)/2+1):end, 1:size(A1,2)/2);
-    A22 = A1((size(A1,1)/2+1):end, (1+size(A1,2)/2):end);
-    
-    bigm = A11\A21*(A22\A12);
+    bigm = eye(par.obsts(1).N);
+    if (length(par.obsts) == 2) && 0
+        % Wrong formula which is correct due to symmetry:
+        A11 = A1(1:size(A1,1)/2, 1:size(A1,2)/2);
+        A21 = A1(1:size(A1,1)/2, (1+size(A1,2)/2):end); % Action of density of obst 2 on location of obst 1
+        A12 = A1((size(A1,1)/2+1):end, 1:size(A1,2)/2);
+        A22 = A1((size(A1,1)/2+1):end, (1+size(A1,2)/2):end);
+        bigm = A11\A21*(A22\A12);
+    elseif 0
+        for obst = 1:length(par.obsts)
+           other = obst-1;
+           if other == 0
+               other = length(par.obsts);
+           end
+%            bigm = bigm*A1(par.r(1,obst):par.r(2,obst),par.r(1,obst):par.r(2,obst))\A1(...
+%                par.r(1,obst):par.r(2,obst),par.r(1,other):par.r(2,other));
+           % Need brackets such that the system matrix is A(o,o) iso all previous times A(o,o)
+           bigm = bigm*(A1(par.r(1,obst):par.r(2,obst),par.r(1,obst):par.r(2,obst))\A1(...
+               par.r(1,obst):par.r(2,obst),par.r(1,other):par.r(2,other)));
+%            bigm = bigm*A1(par.r(1,obst):par.r(2,obst), par.r(1,obst):par.r(2,obst))\A1(...
+%                par.r(1,other):par.r(2,other), par.r(1,obst):par.r(2,obst));
+        end
+    else
+        for obst = 1:length(par.obsts)
+           i = obst +1 -(obst == length(par.obsts))*length(par.obsts);
+           % Need brackets such that the system matrix is A(o,o) iso all previous times A(o,o) -> bad cond
+%            bigm = bigm*(A1(par.r(1,i):par.r(2,i), par.r(1,i):par.r(2,i))\A1(...
+           bigm = (A1(par.r(1,i):par.r(2,i), par.r(1,i):par.r(2,i))\A1(...
+               par.r(1,i):par.r(2,i),par.r(1,obst):par.r(2,obst)))*bigm;
+        end
+    end
     display(['Starting EVD of matrix of size ' num2str(size(bigm))]);
     [Vb, Db, Wb] = eig(bigm);
     display(['Ended EVD of matrix of size ' num2str(size(bigm))]);
@@ -147,9 +182,42 @@ for ki = 1:kl
         end
         legend(num2str((1:nbrefl)'));
     end
-    
+%     v = validate(A1,A1, par, struct('field', zeros(40)));
+%     v = validate(A1,A1, par, v,1);
+
+
     V1 = Vb(:,1);
-    save('V1k9.mat', 'V1', 'par', 'c1');
+    mev = 2;
+    allV = cell(length(par.obsts)+1,1);
+    allV{1} = Vb(:,1:mev);
+    for obst = 1:length(par.obsts)
+        matr = zeros(par.obsts(obst).N, mev);
+        for ev = 1:mev
+%             if obst == 1
+%                 matr(:,ev) = Vb(:,ev);
+%             else
+                i = obst +1 -(obst == length(par.obsts))*length(par.obsts);
+%                 matr(:,ev) = (A1(par.r(1,i):par.r(2,i), par.r(1,i):par.r(2,i))\A1(...
+%                     par.r(1,i):par.r(2,i),par.r(1,obst):par.r(2,obst)))*allV{obst}(:,ev);
+                matr(:,ev) = A1(par.r(1,i):par.r(2,i), par.r(1,i):par.r(2,i))\(A1(...
+                    par.r(1,i):par.r(2,i),par.r(1,obst):par.r(2,obst))*allV{obst}(:,ev));
+%                     par.r(1,i):par.r(2,i),par.r(1,obst):par.r(2,obst)))*allV{obst-1}(:,ev);
+%             end
+        end
+        allV{obst+1} = matr;
+%         allV{obst} = matr;
+    end
+    for ev = 1:mev
+%         if norm(allV{1}(:,ev) - allV{length(par.obsts)+1}(:,ev)*norm(allV{1}(:,ev))/norm(allV{length(par.obsts)+1}(:,ev))) ...
+        if norm(allV{1}(:,ev) - allV{length(par.obsts)+1}(:,ev)/Db(ev,ev) ) ...
+                > norm(allV{1}(:,ev))*eps^(4/7) %*eps^(3/4)
+            error('Not an eigenvector');
+        end
+    end
+%     save('V1k9.mat', 'V1', 'par', 'c1');
+%     save(['V1k' num2str(par.k) 'obst' num2str(obstacle) '.mat'], 'V1', 'par', 'c1');
+%     save(['V1k' num2str(par.k) 'obst' num2str(obstacle) '.mat'], 'V1', 'par', 'c1', 'allV');
+    save(['V1k' num2str(par.k) 'obst' num2str(obstacle) 'swap.mat'], 'V1', 'par', 'c1', 'allV');
     display(['ki = ' num2str(ki) ', now is ' datestr(now) ', expected end ' datestr(start + ...
         (now-start)*sum(ks.^2)/sum(ks(1:ki).^2) )  ]);
 end
