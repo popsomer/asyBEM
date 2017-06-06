@@ -11,13 +11,9 @@ ks = 2^7;
 % obsts = 5;
 % obstacle = 5; % Two circles
 % obstacle = 12; % Three circles
-obstacle = 13; % Ellipse and near-convex
-if 0 % Three circles switched
-    obstacle = 12; par = getObst(obstacle);
-    tmppar = par.obsts(2);
-    par.obsts(2) = par.obsts(3);
-    par.obsts(3) = tmppar;
-end
+% obstacle = 13; % Near-convex and ellipse
+% obstacle = 14; % Near-convex, ellipse and near-inclusion
+swap = 6;
 
 bc = 1;
 % bcsh = pi/2; % shift in boundary condition
@@ -34,7 +30,82 @@ v = struct('avm', avm, 'taus', rand(avm,1), 'errBCavm', zeros(nbOb*kl,2), 'errSo
 start = now;
 
 for ki = 1:kl
-    par = getObst(obstacle); % Reset par
+    if swap == 0
+        par = getObst(obstacle); % Reset par
+    elseif swap == 1 % Three circles switched
+        obstacle = '12swap';
+%         obstacle = 12; 
+        par = getObst(obstacle);
+        tmppar = par.obsts(2);
+        par.obsts(2) = par.obsts(3);
+        par.obsts(3) = tmppar;
+    elseif swap == 2 %Two nonsymmetric ellipses
+        obstacle = '2nsEll';
+        par = struct('obsts', [struct('par', @(t) repmat([-0.5;-1], 1, length(t)) + [0.7*cos(2*pi*t); 0.5*sin(2*pi*t)], 'gradnorm',...
+            @(t) 2*pi*sqrt(0.7^2+1/4)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10, 'serpar', ...
+            @(t,mo) [(-0.5*((0:mo-1) == 0) + 0.7*(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2)); ... 
+            (-1*((0:mo-1) == 0) +0.5*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2))]) ...
+            struct('par', @(t) repmat([0.4;0], 1, length(t)) + [0.45*cos(2*pi*t); 0.25*sin(2*pi*t)], 'gradnorm',...
+			@(t) 2*pi*sqrt(0.45^2+0.25^2)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10, 'serpar', ...
+            @(t,mo) [(0.4*((0:mo-1) == 0) + 0.45*(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2)); ... 
+            0.25*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2)]) ], ...
+            'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 3e-3);
+    elseif swap == 3 % Three unequal nonsymmetric circles
+        obstacle = '3nsCirc';
+		par = struct('obsts', [struct('par', @(t) [sin(2*pi*t); cos(2*pi*t)]/2, 'gradnorm',... 
+			@(t) pi*ones(size(t)), 'normal', @(t) [sin(2*pi*t); cos(2*pi*t)], 'corners', [], 'dbf', 1, 'ppw', 10, ...
+            'serpar', @(t,mo) [(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2); ... 
+            (2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2)]/2) ... %End obst 1
+			struct('par', @(t) repmat([0; 4], 1, length(t)) + 0.35*[sin(2*pi*t); -cos(2*pi*t)], 'gradnorm',...
+			@(t) 2*pi*0.35*ones(size(t)), 'normal', @(t) [sin(2*pi*t); -cos(2*pi*t)], 'corners', [], 'dbf', 1, 'ppw', 10, ...
+            'serpar', @(t,mo) [0.35*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2); ...
+            (4*((0:mo-1) == 0) -0.35*(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2))]), ... % End obst 2
+            struct('par', @(t) repmat([7.5; 3], 1, length(t)) + 1.1*[sin(2*pi*t); -cos(2*pi*t)], 'gradnorm',...
+			@(t) 2*pi*1.1*ones(size(t)), 'normal', @(t) [sin(2*pi*t); -cos(2*pi*t)], 'corners', [], 'dbf', 1, 'ppw', 10, ...
+            'serpar', @(t,mo) [(7.5*((0:mo-1) == 0) +1.1*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2)); ...
+            (3*((0:mo-1) == 0) -1.1*(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2))]/2)], 'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), ...
+            'xi', 3e-3);
+    elseif swap == 4 % Circle with fft and ellipse
+        obstacle = 'circFFtEl';
+        tm = getObst(16);
+        tm = rmfield(rmfield(tm, 'xi'), 'bc');
+        tm = rmfield(rmfield(tm, 'grad'), 'cur');
+        tm = rmfield(rmfield(tm, 'normal'), 'derGrad');
+        tm.ppw = 7;
+        par = struct('obsts', [struct('par', @(t) repmat([-0.5;-2], 1, length(t)) + [0.7*cos(2*pi*t); 0.5*sin(2*pi*t)], 'gradnorm',...
+            @(t) 2*pi*sqrt(0.7^2+1/4)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 7, 'serpar', ...
+            @(t,mo) [(-0.5*((0:mo-1) == 0) + 0.7*(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2)); ... 
+            (-2*((0:mo-1) == 0) +0.5*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2))]) tm], ...
+            'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 6e-3);
+    elseif swap == 5 % Circle without fft and ellipse
+        obstacle = 'circWoFFtEl';
+        par = struct('obsts', [struct('par', @(t) repmat([-0.5;-2], 1, length(t)) + [0.7*cos(2*pi*t); 0.5*sin(2*pi*t)], 'gradnorm',...
+            @(t) 2*pi*sqrt(0.7^2+1/4)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 7, 'serpar', ...
+            @(t,mo) [(-0.5*((0:mo-1) == 0) + 0.7*(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2)); ... 
+            (-2*((0:mo-1) == 0) +0.5*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2))])   ...
+            struct('par', @(t) [cos(2*pi*t); sin(2*pi*t)], 'gradnorm',...
+            @(t) 2*pi*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 7, 'serpar', ...
+            @(t,mo) [ (2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2); ... 
+            (2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2)]) ], ...
+            'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 6e-3);
+    elseif swap == 6 % Near-inclusion near convex part, near-convex and ellipse
+        obstacle = 'nincNcEll';
+        tmp = getObst(4, [+0.5; -1]);
+        tmp = rmfield(rmfield(tmp, 'xi'), 'bc');
+        tmp = rmfield(rmfield(tmp, 'grad'), 'cur');
+        tmp = rmfield(rmfield(tmp, 'normal'), 'derGrad');
+        tmp.ppw = 10;
+        tm = getObst(3, [+0; +0.6]);
+        tm = rmfield(rmfield(tm, 'xi'), 'bc');
+        tm = rmfield(rmfield(tm, 'grad'), 'cur');
+        tm = rmfield(rmfield(tm, 'normal'), 'derGrad');
+        tm.ppw = 10;
+        par = struct('obsts', [tm  tmp  struct('par', @(t) repmat([-0.4;0], 1, length(t)) + [0.15*cos(2*pi*t); 0.25*sin(2*pi*t)], 'gradnorm',...
+            @(t) 2*pi*sqrt(0.15^2+0.25^2)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10, 'serpar', ...
+            @(t,mo) [(-0.4*((0:mo-1) == 0) + 0.15*(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2)); ...
+            0.25*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2)]) ], ...
+            'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 3e-3);
+    end
 %     if obstacle == 11
 %         par = getObst(obstacle, rx); % Reset par
 %     else
@@ -109,7 +180,7 @@ for ki = 1:kl
     % figure; plot( [real(c1) imag(c1)]); legend('Re(c1)','Im(c1)')
     % v = validate(A1,nan*A1,par,v,idx)
     
-    display('aspodijf');
+%     display('aspodijf');
     %% Eigenvalues big reflection matrix
     bigm = eye(par.obsts(1).N);
     if (length(par.obsts) == 2) && 0
@@ -216,8 +287,12 @@ for ki = 1:kl
     end
 %     save('V1k9.mat', 'V1', 'par', 'c1');
 %     save(['V1k' num2str(par.k) 'obst' num2str(obstacle) '.mat'], 'V1', 'par', 'c1');
-%     save(['V1k' num2str(par.k) 'obst' num2str(obstacle) '.mat'], 'V1', 'par', 'c1', 'allV');
-    save(['V1k' num2str(par.k) 'obst' num2str(obstacle) 'swap.mat'], 'V1', 'par', 'c1', 'allV');
+%     if swap
+%         save(['V1k' num2str(par.k) 'obst' num2str(obstacle) 'swap.mat'], 'V1', 'par', 'c1', 'allV');
+%     else
+    save(['V1k' num2str(par.k) 'obst' num2str(obstacle) '.mat'], 'V1', 'par', 'c1', 'allV');
+%     end
+    
     display(['ki = ' num2str(ki) ', now is ' datestr(now) ', expected end ' datestr(start + ...
         (now-start)*sum(ks.^2)/sum(ks(1:ki).^2) )  ]);
 end

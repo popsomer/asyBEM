@@ -6,9 +6,17 @@ clearvars
 close all
 format longe
 set(0,'DefaultFigureWindowStyle','docked');
- 
-% load V1k128obst12; % Loads V1l and par
-load V1k128obst13; % Ellipse and nearconvex
+% Loads V1l, allV and par
+% load V1k128obst12; % Three circles
+% load V1k128obst13; % Nearconvex and ellipse
+% load V1k512obst13; % Nearconvex and ellipse at higher frequency
+% load V1k128obst14; % Nearconvex, ellipse and near-inclusion
+% load V1k128obst5.mat; % Two circles
+% load V1k128obst2nsEll; % Two nonsymmetric ellipses
+% load V1k128obst3nsCirc; % Three nonsymmetric circles
+% load V1k128obstcircFFtEl; % Circle with FFT and ellipse
+% load V1k128obstcircWoFFtElswap; % Circle without FFT and ellipse
+load V1k128obstnincNcEll; % Near-inclusion near convex part, near-convex and ellipse
 if 0
     load V1k9; partmp = getObst(5); % From twoCircles, was without serpar
     par.obsts(1).serpar = partmp.obsts(1).serpar; par.obsts(2).serpar = partmp.obsts(2).serpar;
@@ -33,7 +41,8 @@ end
 
 
 %% Calculate the phase
-maxOrder = 5; 
+% maxOrder = 5; 
+maxOrder = 20;
 [taus, c, a, ft, d] = seriesPhasePerOrbit(par, maxOrder);
 tayPh = zeros(maxOrder, length(collsignal));
 tayPh(1,:) = sum(d)*ones(size(collsignal));
@@ -41,7 +50,7 @@ for i = 1:maxOrder
     tayPh(i+1,:) = tayPh(i,:) + c(i,1)*(collsignal - taus(1)).^i;
 end
 
-
+if 0 % Do for any obstacle below
 %% Calculate phitilde: extract phase from angle
 phitilde = zeros(size(signal));
 
@@ -127,14 +136,21 @@ V1pl = plot(collsignal, real(transpose(signal)), 'b:');
 xlabel('\tau_{1,j}');
 ylabel('Mode');
 set(gca, 'FontSize', 20);
+end
 
-%% Plot for second obstacle
-sig2 = allV{2}(:,1);
+%% Plot for some obstacle with index testo
+% testo = 1;
+% testo = 2;
+% testo = 3;
+for testo = 1:length(par.obsts)
+% sig2 = allV{2}(:,1);
+sig2 = allV{testo}(:,1);
 
 phit2 = nan(size(sig2));
 % Assume same collsignal
 % clos2 = find(abs(collsignal -taus(2)) == min(abs(collsignal-taus(2))));
-[~, clos2] = min(abs(collsignal-taus(2)) );
+% [~, clos2] = min(abs(collsignal-taus(2)) );
+[~, clos2] = min(abs(collsignal-taus(testo)) );
 
 phit2(clos2) = angle(sig2(clos2))./par.k;
 
@@ -172,16 +188,88 @@ phit2 = sum(d) +(phit2 - phit2(clos2) );
 
 tayPh2 = zeros(maxOrder, length(collsignal));
 tayPh2(1,:) = sum(d)*ones(size(collsignal));
+% Use periodized version of collsignal in series expansion
+collser = collsignal + round(taus(testo) - collsignal);
 for i = 1:maxOrder-1
-    tayPh2(i+1,:) = tayPh2(i,:) + c(i,2)*(collsignal - taus(2)).^i;
+%     tayPh2(i+1,:) = tayPh2(i,:) + c(i,2)*(collsignal - taus(2)).^i;
+%     tayPh2(i+1,:) = tayPh2(i,:) + c(i,testo)*(collsignal - taus(testo)).^i;
+    tayPh2(i+1,:) = tayPh2(i,:) + c(i,testo)*(collser - taus(testo)).^i;
 end
 
+% marks = {'b', 'r:', 'g--', 'k-.', 'c-', 'm:', 'y'};
+marks = {'b', 'r:', 'g--', 'k-.', 'c-', 'm-.', 'y'};
+ords = unique(round((1:length(marks))*maxOrder/length(marks)));
+
 figure;
-plot(collsignal, real(transpose(sig2)), 'b:');
-xlabel('\tau_{2,j}');
-ylabel('Mode in obst 2');
+% V1plPh = cell(maxOrder,1);
+% V1plPh = gobjects(maxOrder+1,1);
+% legs = cell(maxOrder+1,1);
+V1plPh = gobjects(length(ords) +1,1);
+legs = cell(length(ords) +1,1);
+V1plPh(1) = plot(collsignal, real(transpose(sig2)), 'b:');
+hold on;
+legs{1} = 'Re($V_{j,1})$';
+% for ord = 1:maxOrder %maxOrder:-1:1
+%     V1plPh(ord+1) = plot(collsignal, real(transpose(sig2)./exp(1i*par.k*tayPh2(ord,:) )), marks{ord}, 'LineWidth', 3);
+%     legs{ord+1} = ['Re$\{V_{j,1}/\exp(ik\sum_{i=0}^{' num2str(ord-1) '} c_i [\tau - \tau^*]^i)\}$'];
+for oi = 1:length(ords)
+    ord = ords(oi);
+    V1plPh(oi+1) = plot(collsignal, real(transpose(sig2)./exp(1i*par.k*tayPh2(ord,:) )), marks{oi}, ...
+        'LineWidth', oi/length(ords)*2 +1);
+    legs{oi+1} = ['Re$\{V_{j,1}/\exp(ik\sum_{i=0}^{' num2str(ord-1) '} c_i [\tau - \tau^*]^i)\}$'];
+end
+% V1plPh(1) = plot(collsignal, real(transpose(sig2)), 'b:');
+% legs{1} = 'Re($V_{j,1})$';
+% V1plcmax = plot(collsignal, real(transpose(sig2)./exp(1i*par.k*tayPh2(maxOrder,:) )), 'g', 'LineWidth', 3);
+% hold on;
+% ho = round(maxOrder/2);
+% V1plcha = plot(collsignal, real(transpose(sig2)./exp(1i*par.k*tayPh2(ho,:) )), 'r--', 'LineWidth', 2);
+% V1pl = plot(collsignal, real(transpose(sig2)), 'b:');
+% legend([V1pl, V1plcha, V1plcmax], {'Re($V_{j,1})$', ['Re$\{V_{j,1}/\exp(ik\sum_{i=0}^{' num2str(ho) '} c_i [\tau - \tau^*]^i)\}$'], ...
+%     ['Re$\{V_{j,1}/\exp(ik\sum_{i=0}^{' num2str(maxOrder) '} c_i [\tau - \tau^*]^i)\}$']},...
+%     'interpreter', 'latex', 'FontSize', 20); 
+
+legend(V1plPh, legs, 'interpreter', 'latex', 'FontSize', 20, 'location', 'best');
+xlabel(['\tau_{' num2str(testo) ',j}']);
+% xlabel('\tau_{2,j}');
+ylabel(['Mode in obstacle ' num2str(testo)]);
+% ylabel('Mode in obst 2');
 set(gca, 'FontSize', 20);
 
+% Plot the convergence of the phase
+% marks = {'b', 'r:', 'g--', 'k-.', 'c-', 'm:', 'y'};
+figure;
+% cvgs = gobjects(maxOrder,1);
+% legs = cell(maxOrder,1);
+cvgs = gobjects(length(ords), 1);
+legs = cell(length(ords), 1);
+% for ord = 1:maxOrder
+%     cvgs(ord) = loglog(abs(collsignal-taus(testo)), abs(phit2- tayPh2(ord,:)')./phit2, marks{ord});
+%     legs{ord} = ['$|\tilde{\phi} -\sum_{i=0}^{' num2str(ord-1) '} c_i [\tau - \tau^*]^i|/\tilde{\phi}$'];
+for oi = 1:length(ords)
+    ord = ords(oi);
+    cvgs(oi) = loglog(abs(collsignal-taus(testo)), abs(phit2- tayPh2(ord,:)')./phit2, marks{oi},'LineWidth', oi/length(ords)*2 +1);
+    hold on;
+    legs{oi} = ['$|\tilde{\phi} -\sum_{i=0}^{' num2str(ord-1) '} c_i [\tau - \tau^*]^i|/\tilde{\phi}$'];
+end
+
+legend(cvgs, legs, 'interpreter', 'latex', 'FontSize', 20, 'location', 'best');
+xlabel(['|\tau_{' num2str(testo) ',j} - \tau_{' num2str(testo) '}^*|']);
+ylabel(['Relative error for obstacle ' num2str(testo)]);
+set(gca, 'FontSize', 20);
+
+other = testo-1;
+if other == 0
+    other = length(par.obsts);
+end
+minDist = fminsearch(@(t) norm(par.obsts(other).par(taus(other)) -par.obsts(testo).par(t) ), taus(testo));
+[mi, ix] = min(phit2);
+[collsignal(ix), minDist, (collsignal(ix) -minDist), (collsignal(ix) -collsignal(ix-1))]
+end
+
+%% Old plots
+
+if 0
 figure; 
 phitPl = plot(collsignal, phit2);
 hold on;
@@ -190,32 +278,36 @@ c1Pl = plot(collsignal, tayPh2(2,:));
 c2Pl = plot(collsignal, tayPh2(3,:));
 c3Pl = plot(collsignal, tayPh2(4,:));
 
-legend([phitPl, c0Pl, c1Pl, c2Pl, c3Pl], {'$\tilde{\phi}$', '$c_0$', '$c_0 + c_1 [\tau_1 - \tau_1^*]$',...
-    '$\sum_{i=0}^2 c_i [\tau_1 - \tau_1^*]^i$', '$\sum_{i=0}^3 c_i [\tau_1 - \tau_1^*]^i$'}, ...
+% legend([phitPl, c0Pl, c1Pl, c2Pl, c3Pl], {'$\tilde{\phi}$', '$c_0$', '$c_0 + c_1 [\tau_1 - \tau_1^*]$',...
+%     '$\sum_{i=0}^2 c_i [\tau_1 - \tau_1^*]^i$', '$\sum_{i=0}^3 c_i [\tau_1 - \tau_1^*]^i$'}, ...
+legend([phitPl, c0Pl, c1Pl, c2Pl, c3Pl], {'$\tilde{\phi}$', '$c_0$', '$c_0 + c_1 [\tau - \tau^*]$',...
+    '$\sum_{i=0}^2 c_i [\tau - \tau^*]^i$', '$\sum_{i=0}^3 c_i [\tau - \tau^*]^i$'}, ...
     'interpreter', 'latex', 'FontSize', 20);
-
-xlabel('\tau_{1,j}');
-ylabel('Phase for obst 2');
+xlabel(['\tau_{' num2str(testo) ',j}']);
+ylabel(['Phase for obst ' num2str(testo)]);
 set(gca, 'FontSize', 20);
+% end
 
 % convergence
 figure; 
-c0Pl = loglog(abs(collsignal-taus(2)), abs(phit2- tayPh2(1,:)')./phit2, 'b');
+c0Pl = loglog(abs(collsignal-taus(testo)), abs(phit2- tayPh2(1,:)')./phit2, 'b');
+% c0Pl = loglog(abs(collsignal-taus(2)), abs(phit2- tayPh2(1,:)')./phit2, 'b');
 hold on;
-c1Pl = plot(abs(collsignal-taus(2)), abs(phit2- tayPh2(2,:)')./phit2, 'r:');
-c2Pl = plot(abs(collsignal-taus(2)), abs(phit2- tayPh2(3,:)')./phit2, 'g');
-c3Pl = plot(abs(collsignal-taus(2)), abs(phit2- tayPh2(4,:)')./phit2, 'm-.');
+c1Pl = plot(abs(collsignal-taus(testo)), abs(phit2- tayPh2(2,:)')./phit2, 'r:');
+c2Pl = plot(abs(collsignal-taus(testo)), abs(phit2- tayPh2(3,:)')./phit2, 'g');
+c3Pl = plot(abs(collsignal-taus(testo)), abs(phit2- tayPh2(4,:)')./phit2, 'm-.');
 
-legend([c0Pl, c1Pl, c2Pl, c3Pl], {'$|\tilde{\phi} -c_0|/\tilde{\phi}$', '$|\tilde{\phi} -c_0 - c_1 [\tau_1 - \tau_1^*]|/\tilde{\phi}$',...
-    '$|\tilde{\phi} -\sum_{i=0}^2 c_i [\tau_1 - \tau_1^*]^i|/\tilde{\phi}$', '$|\tilde{\phi} -\sum_{i=0}^3 c_i [\tau_1 - \tau_1^*]^i|/\tilde{\phi}$'}, ...
+legend([c0Pl, c1Pl, c2Pl, c3Pl], {'$|\tilde{\phi} -c_0|/\tilde{\phi}$', '$|\tilde{\phi} -c_0 - c_1 [\tau - \tau^*]|/\tilde{\phi}$',...
+    '$|\tilde{\phi} -\sum_{i=0}^2 c_i [\tau - \tau^*]^i|/\tilde{\phi}$', '$|\tilde{\phi} -\sum_{i=0}^3 c_i [\tau - \tau^*]^i|/\tilde{\phi}$'}, ...
     'interpreter', 'latex', 'FontSize', 20);
 
-xlabel('|\tau_{2,j} - \tau_{2}^*|');
-ylabel('Relative error for second obstacle');
+% xlabel('|\tau_{2,j} - \tau_{2}^*|');
+% ylabel('Relative error for second obstacle');
+xlabel(['|\tau_{' num2str(testo) ',j} - \tau_{' num2str(testo) '}^*|']);
+ylabel(['Relative error for obstacle ' num2str(testo)]);
 set(gca, 'FontSize', 20);
 
-
-
+end
 
 %% Make plots
 % figure; plot(collsignal, real(signal))
@@ -242,10 +334,19 @@ for moi = 1:length(par.obsts)
     perOrbit(:,moi) = par.obsts(moi).par(taus(moi));
 end
 plot([perOrbit(1,:) perOrbit(1,1)], [perOrbit(2,:) perOrbit(2,1)]);
+% quiver( (perOrbit(1,1:end-1) + perOrbit(1,2:end))/2, (perOrbit(2,1:end-1) + perOrbit(2,2:end))/2,...
+%     (perOrbit(1,2:end) - perOrbit(1,1:end-1))/6, (perOrbit(2,2:end) - perOrbit(2,1:end-1))/6);
+% quiver( (perOrbit(1,1) + perOrbit(1,end))/2, (perOrbit(2,1) + perOrbit(2,end))/2, ...
+%      (perOrbit(1,1)- perOrbit(1,end))/6, (perOrbit(2,1)- perOrbit(2,end))/6);
+ quiver( [(perOrbit(1,1:end-1) + perOrbit(1,2:end)), (perOrbit(1,1) + perOrbit(1,end))]/2, ...
+    [(perOrbit(2,1:end-1) + perOrbit(2,2:end)), (perOrbit(2,1) + perOrbit(2,end))]/2,...
+    [(perOrbit(1,2:end) - perOrbit(1,1:end-1)), (perOrbit(1,1)- perOrbit(1,end))]/16, ...
+    [(perOrbit(2,2:end) - perOrbit(2,1:end-1)), (perOrbit(2,1)- perOrbit(2,end))]/16);
 set(h,'FontSize',10);
 axis equal;
 
 
+if 0
 %% Plot relerr phase
 
 figure; 
@@ -262,3 +363,5 @@ legend([c0Pl, c1Pl, c2Pl, c3Pl], {'$|\tilde{\phi} -c_0|/\tilde{\phi}$', '$|\tild
 xlabel('|\tau_{1,j} - \tau_{1}^*|');
 ylabel('Relative error');
 set(gca, 'FontSize', 20);
+end
+

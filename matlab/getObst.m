@@ -4,7 +4,7 @@
 %	idx	- Index for which obstacle: 0 circle (cubic), 1 circle (linear as are the following), 2 ellipse, 3 near-inclusion, 
 %         4 almost convex, 5 two circles, 6 three ellipses, 7 near-inclusion and circle, 8 nonconvex polygon, 9 one selfreflection, 11 two
 %         ellipses
-%   [rx - the radius in the x-direction for the two ellipses]
+%   [rx - the radius in the x-direction for the two ellipses, or the shift for smooth parametrizations based on an FFT]
 % Output
 %	par - The par structure, containing par (the parametrization), gradnorm, normal, corners, bc (the boundary condition), dbf (degree
 %         of the basis functions), ppw (number of points per wavelength), serpar (the series expansion of the parametrization for one t
@@ -30,12 +30,13 @@ switch idx
 	case 3 % Near-inclusion
 		x = [0.7454 0.6947 0.5933 0.3836 0.2108 0.1440 0.2546 0.4597 0.5472 0.5219 0.3491 0.1694 0.2131 0.4366 0.6417 0.7200;...
 			0.5219 0.6506 0.7646 0.8904 0.8553 0.6857 0.6009 0.6272 0.5395 0.3348 0.3640 0.3319 0.1360 0.1038 0.1974 0.3787];
-	        dbf = 1; ppw = 10; xi = 0.01;
+        dbf = 1; ppw = 10; xi = 0.01;
 	case 4 % Near-convex
 		x = [ 0.6071  0.6141  0.6302  0.6233  0.5611  0.4965  0.4343  0.3906  0.3836  0.3975  0.4067  0.3952  0.3813  ...
 			0.4067  0.4712  0.5426  0.5887  0.6256  0.6141  0.6071 ;   0.5365  0.6272  0.7178  0.8173  0.8874  0.9020  0.8787  ...
 			0.8085  0.7120  0.6067  0.5073  0.4079  0.3056  0.2354  0.1827  0.1798  0.2149  0.2909  0.3845  0.4664];
-	        dbf = 1; ppw = 7; xi = 0.04; %xi = 0.025; 
+        
+        dbf = 1; ppw = 7; xi = 0.04; %xi = 0.025;
 	case 5 % Two circles for the article periodic orbit general obstacles with d = 1 = 2r
 		par = struct('obsts', [struct('par', @(t) [sin(2*pi*t); cos(2*pi*t)]/2, 'gradnorm',... 
 			@(t) pi*ones(size(t)), 'normal', @(t) [sin(2*pi*t); cos(2*pi*t)], 'corners', [], 'dbf', 1, 'ppw', 10, ...
@@ -56,27 +57,27 @@ switch idx
 			struct('par', @(t) repmat([1;1], 1, length(t)) + [0.4*cos(2*pi*t); 0.2*sin(2*pi*t)], 'gradnorm',...
 			@(t) 2*pi*sqrt(0.4^2+0.2^2)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10 ) ], 'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), ...
             'xi', 3e-3);
+        return
+    case 7 % Near-inclusion and circle
+        tmp = getObst(3);
+        tmp = rmfield(tmp,'bc');
+        tmp = rmfield(tmp,'xi');
+        tmp = rmfield(tmp,'grad');
+        tmp = rmfield(tmp,'cur');
+        tmp = rmfield(tmp,'derGrad');
+        tmp.ppw = 10;
+        par = struct('obsts', [tmp struct('par', @(t) repmat([-0.5;-0.5], 1, length(t)) + [0.5*cos(2*pi*t); 0.5*sin(2*pi*t)], ...
+            'gradnorm', @(t) pi*ones(size(t)), 'normal', @(t) [cos(2*pi*t); sin(2*pi*t)], 'corners', [], 'dbf', 1, 'ppw', 10)],...
+            'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 1e-3);
 		return
-	case 7 % Near-inclusion and circle
-	        tmp = getObst(3);
-        	tmp = rmfield(tmp,'bc');
-	        tmp = rmfield(tmp,'xi');
-        	tmp = rmfield(tmp,'grad');
-	        tmp = rmfield(tmp,'cur');
-	        tmp = rmfield(tmp,'derGrad');
-        	tmp.ppw = 10;
-            par = struct('obsts', [tmp struct('par', @(t) repmat([-0.5;-0.5], 1, length(t)) + [0.5*cos(2*pi*t); 0.5*sin(2*pi*t)], ...
-                'gradnorm', @(t) pi*ones(size(t)), 'normal', @(t) [cos(2*pi*t); sin(2*pi*t)], 'corners', [], 'dbf', 1, 'ppw', 10)],...
-                'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 1e-3);
-		return
-	case 8 % Polygon
-        	y = [1 -1 0 -1  1; ...
-	             1 1  0 -1 -1];
-	        dbf = 1; ppw = 9; xi = 0.04;
-	case 9 % One self-reflection
-		x = [1 -1 0 -1  1; ...
-	         1 1  0 -1 -1];
-	        dbf = 1; ppw = 15; xi = 0.04;
+    case 8 % Polygon
+        y = [1 -1 0 -1  1; ...
+            1 1  0 -1 -1];
+        dbf = 1; ppw = 9; xi = 0.04;
+    case 9 % One self-reflection
+        x = [1 -1 0 -1  1; ...
+            1 1  0 -1 -1];
+        dbf = 1; ppw = 15; xi = 0.04;
 	case 10 % One self-reflection line pieces
 		par = struct('par', @(t) onePar, 'gradnorm', @(t) oneGrad(t), 'corners', [], 'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), ...
             'dbf', 1, 'ppw', 15, 'xi', 0.04);
@@ -88,7 +89,7 @@ switch idx
 			@(t) 2*pi*sqrt(rx^2+1/4)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10)], ...
         	    'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 3e-3);
 		return
-	case 12 % Three circle of radius 1/2
+	case 12 % Three circles of radius 1/2
 		par = struct('obsts', [struct('par', @(t) [sin(2*pi*t); cos(2*pi*t)]/2, 'gradnorm',... 
 			@(t) pi*ones(size(t)), 'normal', @(t) [sin(2*pi*t); cos(2*pi*t)], 'corners', [], 'dbf', 1, 'ppw', 10, ...
             'serpar', @(t,mo) [(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2); ... 
@@ -115,6 +116,30 @@ switch idx
             0.25*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2)]) ], ...
         	    'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 3e-3);
 		return
+    case 14 % Near-convex, ellipse and near-inclusion
+        tmp = getObst(4);
+        tmp = rmfield(rmfield(tmp, 'xi'), 'bc');
+        tmp = rmfield(rmfield(tmp, 'grad'), 'cur');
+        tmp = rmfield(rmfield(tmp, 'normal'), 'derGrad');
+        tmp.ppw = 10;
+        tm = getObst(3, [+1; -0.6]);
+        tm = rmfield(rmfield(tm, 'xi'), 'bc');
+        tm = rmfield(rmfield(tm, 'grad'), 'cur');
+        tm = rmfield(rmfield(tm, 'normal'), 'derGrad');
+        tm.ppw = 10;
+        par = struct('obsts', [tmp  struct('par', @(t) repmat([-0.4;0], 1, length(t)) + [0.15*cos(2*pi*t); 0.25*sin(2*pi*t)], 'gradnorm',...
+            @(t) 2*pi*sqrt(0.15^2+0.25^2)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10, 'serpar', ...
+            @(t,mo) [(-0.4*((0:mo-1) == 0) + 0.15*(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2)); ...
+            0.25*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2)])  tm ], ...
+            'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 3e-3);
+        return
+	case 15 % Convex obstacle with fft
+		x = [0.4924    0.2348    0.1600    0.1711    0.3580    0.5810    0.6558    0.6904    0.5935; ...
+            0.0934    0.1632    0.4104    0.8142    0.9896    0.9028    0.7104    0.3481    0.1538];
+        dbf = 1; ppw = 10; xi = 0.01;
+    case 16 % Circle with fft
+        x = [cos(2*pi*(0:5)/6); sin(2*pi*(0:5)/6)];
+        dbf = 1; ppw = 5; xi = 0.1;
 	otherwise
 		error(['Unknown index ' num2str(idx)]);
 end
@@ -122,6 +147,9 @@ end
 if exist('x','var')
     % x are the interpolation points, given anti-clockwise (determining the direction of the outward normal).
     N = size(x,2);
+    if exist('rx', 'var')
+        x = x + repmat(rx,1,N);
+    end
     fx = fft(x(1,:))/N;
     fy = fft(x(2,:))/N;
     if mod(N,2) == 0
@@ -179,7 +207,9 @@ function p = serparS(t, mo) % parametrisation of a smooth obstacle through inter
 %     for ord = 0:mo
     for ord = 1:mo
 %         A = (1i*2*pi*repmat(n',1,L)).^ord.*exp(1i*2*pi*repmat(n',1,L).*repmat(t,N,1));
-        A = (1i*2*pi*repmat(n',1,L)).^(ord-1).*exp(1i*2*pi*repmat(n',1,L).*repmat(t,N,1));
+%         A = (1i*2*pi*repmat(n',1,L)).^(ord-1).*exp(1i*2*pi*repmat(n',1,L).*repmat(t,N,1));
+%         A = (1i*2*pi*repmat(n',1,L)).^(ord-1)./factorial(ord).*exp(1i*2*pi*repmat(n',1,L).*repmat(t,N,1));
+        A = (1i*2*pi*repmat(n',1,L)).^(ord-1)./factorial(ord-1).*exp(1i*2*pi*repmat(n',1,L).*repmat(t,N,1));
         
         if mod(N,2) == 1
 %             p(1,:, ord+1) = sum( repmat(fx.', 1, L) .* A, 1);
@@ -193,8 +223,10 @@ function p = serparS(t, mo) % parametrisation of a smooth obstacle through inter
             p(1,:, ord) = p(1,:, ord) + sum( repmat(fx(M+2:N).', 1, L) .* A(M+2:N,:), 1);
             p(2,:, ord) = p(2,:, ord) + sum( repmat(fy(M+2:N).', 1, L) .* A(M+2:N,:), 1);
             % add the middle one, a cosine for ord = 0
-            p(1,:, ord) = p(1,:, ord) + (2*pi*n(M+1))^(ord-1).*fx(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
-            p(2,:, ord) = p(2,:, ord) + (2*pi*n(M+1))^(ord-1).*fy(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
+%             p(1,:, ord) = p(1,:, ord) + (2*pi*n(M+1))^(ord-1).*fx(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
+%             p(1,:, ord) = p(1,:, ord) + (2*pi*n(M+1))^(ord-1)./factorial(ord).*fx(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
+            p(1,:, ord) = p(1,:, ord) + (2*pi*n(M+1))^(ord-1)./factorial(ord-1).*fx(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
+            p(2,:, ord) = p(2,:, ord) + (2*pi*n(M+1))^(ord-1)./factorial(ord-1).*fy(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
         end
     end
     if sum(abs(imag(t))) == 0

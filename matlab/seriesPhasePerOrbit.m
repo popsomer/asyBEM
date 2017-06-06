@@ -64,6 +64,8 @@ function [dt, g] = distWgrad(ts)
     end
 end
 % taus = fminunc(@distWgrad, taus, optimoptions('fminunc', 'Algorithm', 'trust-region', 'SpecifyObjectiveGradient', true, 'TolX', eps));
+taus = fminunc(@distWHess, taus, optimoptions('fminunc', 'Algorithm', 'quasi-newton', 'SpecifyObjectiveGradient', true, ...
+    'TolX', eps, 'TolFun', eps, 'OptimalityTolerance', eps, 'MaxFunctionEvaluations', 1000));
 
 % Try to improve to machine precision using a few Newton iterations?? or Hessian:
 
@@ -101,8 +103,10 @@ function [dt, g, H] = distWHess(ts)
 %     end
 end
 
-taus = fminunc(@distWHess, taus, optimoptions('fminunc', 'Algorithm', 'quasi-newton', 'SpecifyObjectiveGradient', true, ...
-    'HessianFcn','objective', 'TolX', eps, 'TolFun', eps, 'OptimalityTolerance', eps, 'MaxFunctionEvaluations', 1000));
+% taus = fminunc(@distWHess, taus, optimoptions('fminunc', 'Algorithm', 'trust-region', 'SpecifyObjectiveGradient', true, ...
+% taus = fminunc(@distWHess, taus, optimoptions('fminunc', 'Algorithm', 'newton', 'SpecifyObjectiveGradient', true, ...
+% taus = fminunc(@distWHess, taus, optimoptions('fminunc', 'Algorithm', 'quasi-newton', 'SpecifyObjectiveGradient', true, ...
+%     'HessianFcn','objective', 'TolX', eps, 'TolFun', eps, 'OptimalityTolerance', eps, 'MaxFunctionEvaluations', 1000));
 %'Algorithm', 'trust-region' % 'interior-point'
 % [dt, g, H] = distWHess(taus) % check optimality
 
@@ -185,7 +189,10 @@ if J == 2
 %     da = 1;
 %     if (ft(1, 2, 1) ~= 0) || (ft(1, 1, 2) ~= 0)
 %     if (abs(ft(1, 2, 1)) > d(1)*20*eps) || (abs(ft(1, 1, 2)) > d(1)*20*eps)
-    tol = d(1)*1e-10; % No tolerance 20*eps but 1e-10 due to loss of digits in objective fct in fmincon
+%     tol = d(1)*1e-10; 
+    tol = d(1)*1e-7;
+    % No tolerance 20*eps but 1e-10 due to loss of digits in objective fct in fmincon for quasi-Newton
+    % with exact parametrisation without FFT. Even 1e-6*d(1) for trust-region which uses the analytic Hessian.
     if (abs(ft(1, 2, 1)) > tol) || (abs(ft(1, 1, 2)) > tol) 
         error('Distance should be minimal.');
 %     elseif (abs(ft(1, 3, 1)) < d(1)*20*eps) && (abs(ft(1, 1, 3)) < d(1)*20*eps) && (abs(ft(1, 2,2)) < d(1)*20*eps)
@@ -279,11 +286,13 @@ end
     end
 
 ca = fsolve(@omPsi, [+transpose(ft(:,3,1)); zeros(1,J)]);
-c(2,:) = ca(1,:);
-a(1,1,:) = ca(2,:);
-if any(c(2,:) < eps^(1/2))
+if (norm(c(2,:)-ca(1,:)) > eps^(1/2)*norm(c(2,:)) ) || (norm(squeeze(a(1,1,:)) -transpose(ca(2,:))) > eps^(1/2)*norm(ca(2,:)) )
+    error('Different result');
+elseif any(c(2,:) < eps^(1/2))
     warning('c2 is zero or negative');
 end
+c(2,:) = ca(1,:);
+a(1,1,:) = ca(2,:);
 
 for i = 3:maxOrder
     for l = (i-1):maxOrder % :maxOrder-1
@@ -309,7 +318,11 @@ for i = 3:maxOrder
             rhs(J+obst) = rhs(J+obst) -(ft(obst, (3+(l==1)):(i-l+2),l).*((2+(l==1)):(i-l+1)))*a( (1+(l==1)):(i-l), i-l, obst);
         end
     end
-    s = M\rhs;
+    s = M\rhs; 
+    if (J == 2) && ( (norm(transpose(c(i,:)) -s(1:2)) > eps^(1/2)*norm(c(i,:)) ) || ...
+            (norm(squeeze(a(1,i-1,:)) -s(3:4)) > eps^(1/2)*norm(s(3:4))) )
+        error('Different result');
+    end
     c(i,:) = s(1:J);
     a(1,i-1,:) = s(J+1:end);
 end
