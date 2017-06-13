@@ -10,13 +10,13 @@ set(0,'DefaultFigureWindowStyle','docked');
 % load V1k128obst12; % Three circles
 % load V1k128obst13; % Nearconvex and ellipse
 % load V1k512obst13; % Nearconvex and ellipse at higher frequency
-% load V1k128obst14; % Nearconvex, ellipse and near-inclusion
+load V1k128obst14; % Nearconvex, ellipse and near-inclusion
 % load V1k128obst5.mat; % Two circles
 % load V1k128obst2nsEll; % Two nonsymmetric ellipses
 % load V1k128obst3nsCirc; % Three nonsymmetric circles
 % load V1k128obstcircFFtEl; % Circle with FFT and ellipse
 % load V1k128obstcircWoFFtElswap; % Circle without FFT and ellipse
-load V1k128obstnincNcEll; % Near-inclusion near convex part, near-convex and ellipse
+% load V1k128obstnincNcEll; % Near-inclusion near convex part, near-convex and ellipse
 if 0
     load V1k9; partmp = getObst(5); % From twoCircles, was without serpar
     par.obsts(1).serpar = partmp.obsts(1).serpar; par.obsts(2).serpar = partmp.obsts(2).serpar;
@@ -42,7 +42,8 @@ end
 
 %% Calculate the phase
 % maxOrder = 5; 
-maxOrder = 20;
+% maxOrder = 20;
+maxOrder = 6;
 [taus, c, a, ft, d] = seriesPhasePerOrbit(par, maxOrder);
 tayPh = zeros(maxOrder, length(collsignal));
 tayPh(1,:) = sum(d)*ones(size(collsignal));
@@ -197,22 +198,39 @@ for i = 1:maxOrder-1
 end
 
 % marks = {'b', 'r:', 'g--', 'k-.', 'c-', 'm:', 'y'};
-marks = {'b', 'r:', 'g--', 'k-.', 'c-', 'm-.', 'y'};
+% marks = {'b', 'r:', 'g--', 'k-.', 'c-', 'm-.', 'y'};
+marks = {'b', 'r:', 'g--', 'k-.', 'c-'};
 ords = unique(round((1:length(marks))*maxOrder/length(marks)));
-
+mg = 'b:';
+shft = 0.32; % For nincNcEll
+if abs(taus(1) -6.174348705381557e-01) + abs(taus(2) -6.747611126692694e-02) < 1e-5 % then ncEll
+    marks = {'k-.', 'r--', 'g-.', 'c', 'b--'};
+    ords = [3 6];
+    shft = 0.3;
+%     shft = 0.16;
+elseif abs(taus(1) - 7.276256269263204e-01) + abs(taus(2) - 2.734466122469346e-02) ...
+        + abs(taus(min(3,length(par.obsts))) - 3.090147854459014e-01) < 1e-5 %obst 14
+    marks = {'r:', 'g--', 'k-.', 'c-'};
+    shft = 0.4;
+    ords = [4 6];
+    mg = 'b';
+%     shft = 0.24;
+end
 figure;
 % V1plPh = cell(maxOrder,1);
 % V1plPh = gobjects(maxOrder+1,1);
 % legs = cell(maxOrder+1,1);
 V1plPh = gobjects(length(ords) +1,1);
 legs = cell(length(ords) +1,1);
-V1plPh(1) = plot(collsignal, real(transpose(sig2)), 'b:');
+% V1plPh(1) = plot(collsignal, real(transpose(sig2)), 'b:');
+V1plPh(1) = plot(collsignal, real(transpose(sig2)), mg);
 hold on;
 legs{1} = 'Re($V_{j,1})$';
 % for ord = 1:maxOrder %maxOrder:-1:1
 %     V1plPh(ord+1) = plot(collsignal, real(transpose(sig2)./exp(1i*par.k*tayPh2(ord,:) )), marks{ord}, 'LineWidth', 3);
 %     legs{ord+1} = ['Re$\{V_{j,1}/\exp(ik\sum_{i=0}^{' num2str(ord-1) '} c_i [\tau - \tau^*]^i)\}$'];
-for oi = 1:length(ords)
+% for oi = 1:length(ords)
+for oi = length(ords):-1:1
     ord = ords(oi);
     V1plPh(oi+1) = plot(collsignal, real(transpose(sig2)./exp(1i*par.k*tayPh2(ord,:) )), marks{oi}, ...
         'LineWidth', oi/length(ords)*2 +1);
@@ -234,9 +252,18 @@ xlabel(['\tau_{' num2str(testo) ',j}']);
 % xlabel('\tau_{2,j}');
 ylabel(['Mode in obstacle ' num2str(testo)]);
 % ylabel('Mode in obst 2');
-set(gca, 'FontSize', 20);
+% set(gca, 'FontSize', 20);
+set(gca, 'FontSize', 26);
+
 
 % Plot the convergence of the phase
+if abs(taus(1) -6.174348705381557e-01) + abs(taus(2) -6.747611126692694e-02) < 1e-5 % then ncEll
+    ords = [1 3 4 5 6];
+elseif abs(taus(1) - 7.276256269263204e-01) + abs(taus(2) - 2.734466122469346e-02) ...
+        + abs(taus(min(3,length(par.obsts))) - 3.090147854459014e-01) < 1e-5 %obst 14
+    ords = [1 4 6];
+    marks = {'b', 'r:', 'g--', 'k-.', 'c-'};
+end
 % marks = {'b', 'r:', 'g--', 'k-.', 'c-', 'm:', 'y'};
 figure;
 % cvgs = gobjects(maxOrder,1);
@@ -246,7 +273,7 @@ legs = cell(length(ords), 1);
 % for ord = 1:maxOrder
 %     cvgs(ord) = loglog(abs(collsignal-taus(testo)), abs(phit2- tayPh2(ord,:)')./phit2, marks{ord});
 %     legs{ord} = ['$|\tilde{\phi} -\sum_{i=0}^{' num2str(ord-1) '} c_i [\tau - \tau^*]^i|/\tilde{\phi}$'];
-for oi = 1:length(ords)
+for oi = length(ords):-1:1
     ord = ords(oi);
     cvgs(oi) = loglog(abs(collsignal-taus(testo)), abs(phit2- tayPh2(ord,:)')./phit2, marks{oi},'LineWidth', oi/length(ords)*2 +1);
     hold on;
@@ -256,7 +283,8 @@ end
 legend(cvgs, legs, 'interpreter', 'latex', 'FontSize', 20, 'location', 'best');
 xlabel(['|\tau_{' num2str(testo) ',j} - \tau_{' num2str(testo) '}^*|']);
 ylabel(['Relative error for obstacle ' num2str(testo)]);
-set(gca, 'FontSize', 20);
+set(gca, 'FontSize', 26);
+% set(gca, 'FontSize', 20);
 
 other = testo-1;
 if other == 0
@@ -316,20 +344,31 @@ showTau = (0:5)/6;
 perOrbit = nan(2,length(par.obsts));
 ts = linspace(0,1,200)';
 
+% shft = 0.32; % For nincNcEll
+% if abs(taus(1) -6.174348705381557e-01) + abs(taus(2) -6.747611126692694e-02) < 1e-5 % then ncEll
+%     shft = 0.16;
+% end
+
 figure;
 for moi = 1:length(par.obsts)
     topl = par.obsts(moi).par(ts');
     plot(topl(1,:), topl(2,:));
     hold on;
-    h = text(mean(topl(1,:)) - 0.5*(max(topl(1,:))-min(topl(1,:)))+0.1, mean(topl(2,:)), ['Obst. ' num2str(moi)]);
-    set(h,'FontSize',10);
+%     h = text(mean(topl(1,:)) - 0.5*(max(topl(1,:))-min(topl(1,:)))+0.1, mean(topl(2,:)), ['Obst. ' num2str(moi)]);
+    h = text(mean(topl(1,:))- 0.4*(max(topl(1,:))-min(topl(1,:))), ...
+        mean(topl(2,:)) - 0.12*(max(topl(2,:))-min(topl(2,:))), ['Obst. ' num2str(moi)]);
+    set(h,'FontSize',20);
     
     for si = 1:length(showTau)
         pt = par.obsts(moi).par(showTau(si));
         plot(pt(1), pt(2), 'ro','MarkerFaceColor','r', 'MarkerSize',5);
 %         h = text(pt(1)-0.3, pt(2)+0.1, ['$\tau=$ ' num2str(showTau(si))], 'interpreter', 'latex');
-        h = text(pt(1) +0.04, pt(2), ['$\tau=$ ' num2str(showTau(si))], 'interpreter', 'latex');
-        set(h,'FontSize',10, 'color', 'r');
+%         h = text(pt(1) +0.04 -0.32*(abs(showTau(si)-0.5) < 1/4), pt(2), ['$\tau=$ ' num2str(showTau(si), '%0.2f')], 'interpreter', 'latex');
+        h = text(pt(1) +0.04 -shft*(abs(showTau(si)-0.5) < 1/4), pt(2), ['$\tau=$ ' num2str(showTau(si), '%0.2f')], ...
+            'interpreter', 'latex', 'FontSize', 16);
+%         h = text(pt(1) +0.04, pt(2), ['$\tau=$ ' num2str(showTau(si))], 'interpreter', 'latex');
+%         h = text(pt(1) +0.04 - 0.5*(abs(showTau(moi)-0.5) < 1/4), pt(2), ['$\tau=$ ' num2str(showTau(si))], 'interpreter', 'latex');
+        set(h,'FontSize',20, 'color', 'r');
     end
     perOrbit(:,moi) = par.obsts(moi).par(taus(moi));
 end
@@ -342,9 +381,15 @@ plot([perOrbit(1,:) perOrbit(1,1)], [perOrbit(2,:) perOrbit(2,1)]);
     [(perOrbit(2,1:end-1) + perOrbit(2,2:end)), (perOrbit(2,1) + perOrbit(2,end))]/2,...
     [(perOrbit(1,2:end) - perOrbit(1,1:end-1)), (perOrbit(1,1)- perOrbit(1,end))]/16, ...
     [(perOrbit(2,2:end) - perOrbit(2,1:end-1)), (perOrbit(2,1)- perOrbit(2,end))]/16);
-set(h,'FontSize',10);
+% set(h,'FontSize',10);
 axis equal;
+set(gca, 'FontSize', 20);
 
+if shft == 0.3
+    yticks([0.4, 0.6, 0.8]);
+elseif shft == 0.4
+    yticks([-0.6,  -0.4, 0.4, 0.6, 0.8, 1]);
+end
 
 if 0
 %% Plot relerr phase
