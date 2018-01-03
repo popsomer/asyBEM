@@ -63,6 +63,14 @@ infTay2 = d + 1/2*pi^2*(3*(2*sqrt(2) - 3)^2 + 4*sqrt(2) - 3)*tau.^2;
 infTay4 = infTay2 + ( -1/24*pi^4*(39*(2*sqrt(2) - 3)^4 + 52*(2*sqrt(2) - 3)^3 + 42*(2*sqrt(2) - 3)^2 + 104*sqrt(2) - 117)...
     + 7*pi^2*(3*pi^2*(17*sqrt(2)- 24)*(2*sqrt(2) - 3) + pi^2*(17*sqrt(2) - 24)) )*tau.^4;
 
+% Test whether the symbolic results are the ones computed by the general algorithm
+[taus, c, a, ft] = seriesPhasePerOrbit(getObst(5), 8);
+[norm(c(:,1)), norm(c(:,2)-sqrt(2)*pi^2), norm(c(:,3)), norm(c(:,4) +11/12*sqrt(2)*pi^4), norm(c(:,5)), ...
+    norm(c(:,6) - 2783/2520*sqrt(2)*pi^6), norm(c(:,7)), norm(c(:,8) + 358021/205632*sqrt(2)*pi^8)]
+'= abs error on symbolic c, abs error on symbolic a ='
+[norm(a(:,1,1) - (3-2*sqrt(2))), norm(a(:,1,2)), norm(a(:,1,3) +7*(17*sqrt(2)-24)*pi^2), norm(a(:,1,4)), ...
+    norm(a(:,1,5) +(1205811*sqrt(2) -1705312)*pi^4/84), norm(a(:,1,6)), norm(a(:,1,7,:)  + pi^6/128520*(289615597399*sqrt(2) -409578202752))]
+
 
 %% Calculate phitilde: extract phase from angle
 phitilde = zeros(size(signal));
@@ -83,10 +91,12 @@ V1plc8 = plot(collsignal, real(transpose(signal)./exp(1i*par.k*symbTay8(collsign
 hold on;
 V1plc2 = plot(collsignal, real(transpose(signal)./exp(1i*par.k*symbTay2(collsignal))), 'r--', 'LineWidth', 2);
 V1pl = plot(collsignal, real(transpose(signal)), 'b:');
-legend([V1pl, V1plc2, V1plc8], {'Re($V_{j,1})$', 'Re$\{V_{j,1}/\exp(ik[c_0+c_2\tau^2])\}$', 'Re$\{V_{j,1}/\exp(ik\sum_{i=0}^8 c_i \tau_1^i)\}$'},...
+legend([V1pl, V1plc2, V1plc8], {'Re$\{\tilde{V}(\tau)\}$', 'Re$\{\tilde{V}(\tau)/\exp(ik[c_0+c_2\tau^2])\}$', ...
+    'Re$\{\tilde{V}(\tau)/\exp(ik\sum_{i=0}^8 c_i \tau^i)\}$'},...
     'interpreter', 'latex', 'FontSize', 20); %15);
-xlabel('\tau_{1,j}');
+xlabel('\tau');
 ylabel('Mode');
+xticks([-0.5, -0.3, -0.1, 0.1, 0.3, 0.5]);
 set(gca, 'FontSize', 20);
 
 %% Compute the extrapolated reference result

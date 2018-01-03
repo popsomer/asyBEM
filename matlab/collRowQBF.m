@@ -20,20 +20,18 @@ if ~exist('wind','var') || isempty(wind)
     elseif isfield(par, 'phase') % One can include exact phase information in phase which is exploited here.
 %         wind = @(taut) arrayfun(@(tautest) exp(1i*par.k*par.phase(tautest)), taut);
         wind = @(taut) exp(1i*par.k*par.phase(taut));
-%         wind = @(taut) exp(-1i*par.k*phase(taut));
     else
         wind = @(taut) ones(size(taut));
     end
 end
 
-if par.dbf == 1
+if par.dbf == 1 % Linear basis functions
     if isfield(par, 'quadR')
         % Use a simple Riemann sum with the given number of points per collocation points interval to compute the integral. 
         % Using the middle sum avoids points of nonanalyticity.
         qbf_x = linspace(-1, 1, par.quadR*2+1);
         step = qbf_x(2)-qbf_x(1);
         qbf_x = qbf_x(1:end-1) + step/2;
-%         qbf_w = [linspace(0, 1, par.quadR), linspace(1, 0, par.quadR)]; % /par.N already included
         qbf_w = (1-abs(qbf_x))/sum(1-abs(qbf_x));
         istep = round(1/step);
     else
@@ -60,7 +58,6 @@ end
 % The size of the row
 Lj = j2-j1+1;
 
-% if isfield(par, 'quadR')
 % Total number of points in one row: there are istep additional points per element and 4+1 points for the first element,
 % minus the istep already counted. Leave out D = 2 around the collocation point for the regular part.
 Nj = Lj*istep + (length(qbf_w) - istep);

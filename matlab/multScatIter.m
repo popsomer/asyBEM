@@ -51,9 +51,9 @@ elseif bc == 1
     par.bc = @(k,x)-1*exp(1i*k*(x')*[cos(0);sin(0)]);
 end
 
-overs1 = 1;
 
 %% Computating full solution
+overs1 = 1; % if > 1 then oversampling
 A1 = zeros(overs1*par.N, par.N);
 b1 = zeros(overs1*par.N,1);
 tic
@@ -92,27 +92,21 @@ cs = cell(length(par.obsts), nbRefl+1);
 
 legs = cell(nbRefl+1,1);
 legs{1} = 'From incident wave';
-% colours r g b c m y k w
-% linespec - -- : -.
-% markers + o * x s etc
 marks = {'b:', 'r-.', 'k', 'm'};
 endo = length(par.obsts);
 
-for obst = 1:endo %length(par.obsts)
+% Compute the density associated to the incident wave
+for obst = 1:endo
     i = obst +1 -(obst == length(par.obsts))*length(par.obsts);
-    % Need brackets such that the system matrix is A(o,o) iso all previous times A(o,o) -> bad cond
-    %            bigm = bigm*(A1(par.r(1,i):par.r(2,i), par.r(1,i):par.r(2,i))\A1(...
-%     bigm = (A1(par.r(1,i):par.r(2,i), par.r(1,i):par.r(2,i))\A1(...
-%         par.r(1,i):par.r(2,i),par.r(1,obst):par.r(2,obst)))*bigm;
     cs{obst,1} = A1(par.r(1,i):par.r(2,i), par.r(1,i):par.r(2,i))\b1(par.r(1,i):par.r(2,i));
     figure(i); hold on;
-%     plot(par.obsts(i).colltau, real(cs{obst,1}), marks{1}, 'LineWidth', 2);
     toShft = par.obsts(i).colltau > 0.5;
-%     plot(par.obsts(i).colltau(~toShft), real(cs{obst,1}(~toShft)), marks{1}, 'LineWidth', 2);
     plot([(par.obsts(i).colltau(toShft)-1), par.obsts(i).colltau(~toShft)], ...
         [real(cs{obst,1}(toShft)); real(cs{obst,1}(~toShft))], marks{1}, 'LineWidth', 2);
     xlabel(['\tau_' num2str(i)]); ylabel(['Re [v_' num2str(i) '(\tau_' num2str(i) ')]']);
 end
+
+% Compute consecutive reflections
 for refl = 1:nbRefl
     for obst=1:endo
         i = obst +1 -(obst == length(par.obsts))*length(par.obsts);
@@ -121,10 +115,8 @@ for refl = 1:nbRefl
             par.r(1,i):par.r(2,i),par.r(1,obst):par.r(2,obst)))*cs{obst,refl}; %cs{i,refl}
         figure(i);
         toShft = par.obsts(i).colltau > 0.5;
-        plot([(par.obsts(i).colltau(toShft)-1), par.obsts(i).colltau(~toShft)], ...
-        [real(cs{obst, refl+1}(toShft)); real(cs{obst, refl+1}(~toShft))], marks{refl+1}, 'LineWidth', 2+refl/nbRefl);
-%         plot(par.obsts(i).colltau - (par.obsts(i).colltau >= 0.5), real(cs{obst,refl+1}), marks{refl+1}, 'LineWidth', 2+refl/nbRefl);
-%         plot(par.obsts(i).colltau, real(cs{obst,refl+1}), marks{refl+1}, 'LineWidth', 2+refl/nbRefl);
+        plot([(par.obsts(i).colltau(toShft)-1), par.obsts(i).colltau(~toShft)], [real(cs{obst, refl+1}(toShft)); ...
+            real(cs{obst, refl+1}(~toShft))], marks{refl+1}, 'LineWidth', 2+refl/nbRefl);
     end
 end
 for obst = 1:endo
@@ -132,46 +124,10 @@ for obst = 1:endo
     figure(i);
     legend(legs, 'location', 'best');
     set(gca, 'FontSize', 20);
-%     xticks([-5:5]/10);
     xticks([-0.5, -0.4, -0.25, -0.1, 0, 0.1, 0.25, 0.4, 0.5]);
     if bc == 5
         axis([-1/4, 1/4, -30, 30])
-%         xticks([-4:4]/16);
         xticks([-0.25, -0.2, -0.125, -0.05, 0, 0.05, 0.125, 0.2, 0.25]);
     end
 end
 hold off
-
-
-%% Old ray tracing by partitioned block
-if 0
-    c1true1 = c1(1:length(c1)/2);
-    c1true2 = c1(length(c1)/2+1:end);
-    
-    nbrefl = 1; %8;
-    bsl1 = zeros(size(A1,1)/2, nbrefl);
-    bsl2 = zeros(size(A1,1)/2, nbrefl);
-    csl1 = zeros(size(A1,2)/2, nbrefl);
-    csl2 = zeros(size(A1,2)/2, nbrefl);
-    
-    bsl1(:,1) = b1(1:size(A1,1)/2);
-    bsl2(:,1) = b1((size(A1,1)/2+1):end);
-    csl1(:,1) = A11\bsl1(:,1);
-    csl2(:,1) = A22\bsl2(:,1);
-    
-    resid = cell(2,nbrefl);
-    resid{1,1} = c1true1 - sum(csl1,2);
-    figure; plot(par.obsts(1).colltau, real(csl1(:,1)) );
-    title('csl1 refl'); hold on;
-    
-    for refl = 2:nbrefl
-        bsl1(:,refl) = -A21*csl2(:,refl-1);
-        bsl2(:,refl) = -A12*csl1(:,refl-1);
-        csl1(:,refl) = A11\bsl1(:,refl);
-        csl2(:,refl) = A22\bsl2(:,refl);
-        
-        resid{1,refl} = c1true1 - sum(csl1,2);
-        plot(par.obsts(1).colltau, real(csl1(:,refl)));
-    end
-    legend(num2str((1:nbrefl)'));
-end

@@ -1,5 +1,5 @@
 % Compute the influence of the number of points per wavelength, the wavenumber and the geometry on all (significant) 
-% EigenValues and V_{j,i}, the i-th eigenvector of M which represents a full cycle of reflections between the two circles.
+% EigenValues and V_{j,i}, the i-th eigenvector of M which represents a full cycle of reflections between the two disks.
 
 %% Initialising
 clearvars
@@ -8,14 +8,14 @@ format longe
 set(0,'DefaultFigureWindowStyle','docked');
 
 ks = 2^7; %2^8;
-d = 1; %2; %4; %Dist between circles
-% Could also adjust radius r but scales with d and k
+d = 1; %2; %4; % Distance between circles
+% Could also adjust radius r here but scales with d and k
 ppw = 5; %10; %20;
 
-obstacle = 5; % Two circles
+obstacle = 5; % Two circles, script currently only implemented for this
 printtoc = 10;
 kl = length(ks);
-nEV = 30; %6;
+nEV = 30; % Number of eigenvectors
 
 
 %% Computations
@@ -27,15 +27,6 @@ for ki = 1:kl % Or vary d or ppw in this loop
     par.obsts(2).par = @(t) repmat([0; 1+d], 1, length(t)) + [sin(2*pi*t); -cos(2*pi*t)]/2;
     par.obsts(2).serpar = @(t,mo) [(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2); ...
             ((2+2*d)*((0:mo-1) == 0) -(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2))]/2;
-%     par = struct('obsts', [struct('par', @(t) [sin(2*pi*t); cos(2*pi*t)]/2, 'gradnorm',... 
-% 			@(t) pi*ones(size(t)), 'normal', @(t) [sin(2*pi*t); cos(2*pi*t)], 'corners', [], 'dbf', 1, 'ppw', 10, ...
-%             'serpar', @(t,mo) [(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2); ... 
-%             (2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2)]/2) ...
-% 			struct('par', @(t) repmat([0; 2], 1, length(t)) + [sin(2*pi*t); -cos(2*pi*t)]/2, 'gradnorm',...
-% 			@(t) pi*ones(size(t)), 'normal', @(t) [sin(2*pi*t); -cos(2*pi*t)], 'corners', [], 'dbf', 1, 'ppw', 10, ...
-%             'serpar', @(t,mo) [(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2); ...
-%             (4*((0:mo-1) == 0) -(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2))]/2)], ...
-%             'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 3e-3);
         
     par.k = ks(ki);
     par.N = 0;
@@ -54,9 +45,9 @@ for ki = 1:kl % Or vary d or ppw in this loop
         par.obsts(obst).hs = (par.obsts(obst).colltau(2) -par.obsts(obst).colltau(1) )/2;
     end
     
-    overs1 = 1; % possible oversampling?
     
     %% Computating full solution
+    overs1 = 1; % if > 1 then oversampling
     A1 = zeros(overs1*par.N, par.N);
     b1 = zeros(overs1*par.N,1);
     tic
@@ -106,15 +97,13 @@ for ki = 1:kl % Or vary d or ppw in this loop
     
     figure; semilogy(abs(diag(Db))); ylabel('|D_{i,i}|'); xlabel('i');
     phasEV = [mod(2*d*par.k,2*pi); angle(diag(Db(1:nEV,1:nEV)))]
-    
+    % Possibly check these printed values
     params = [ks, d, ppw, nEV]
     for ev = 1:nEV
-%         signal = Vb(:,ev);
-%         collsignal = par.obsts(ev).colltau;
         signal = [Vb((par.N/4+1):par.N/2,ev); Vb(1:par.N/4,ev)];
         collsignal = [par.obsts(1).colltau((par.N/4+1):par.N/2)-1, par.obsts(1).colltau(1:par.N/4)];
         phitilde = zeros(size(signal));
-        closest = find(abs(collsignal -0) == min(abs(collsignal-0))); % 0 is tau_1^*
+        closest = find(abs(collsignal -0) == min(abs(collsignal-0))); % 0 is tau_1^* for two circles
         phitilde(closest) = angle(signal(closest))./par.k;
         
         multipl = 0;
@@ -146,8 +135,4 @@ for ki = 1:kl % Or vary d or ppw in this loop
         xlabel(['\tau_' num2str(ev)]);
         legend(['Re EV ' num2str(ev)], ['phase * ' num2str(factor)], 'abs');
     end
-
-%     save(['V1k' num2str(par.k) 'obst' num2str(obstacle) '.mat'], 'V1', 'par', 'c1', 'allV');
-    
 end
-

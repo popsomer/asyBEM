@@ -1,3 +1,4 @@
 *.mat
 !matlab/V1k9.mat
+!matlab/V1k128obst14.mat
 *~

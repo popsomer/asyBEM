@@ -47,16 +47,8 @@ switch idx
             'serpar', @(t,mo) [(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2); ...
             (4*((0:mo-1) == 0) -(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2))]/2)], ...
             'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 3e-3);
-        %'serpar', @(t,mo) [(2*pi).^(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2); (2*pi).^(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2)]/2) ...
 		return
 	case 6 % Three ellipses
-% 		par = struct('obsts', [struct('par', @(t) repmat([0;0], 1, length(t)) + [0.3*cos(2*pi*t); 0.5*sin(2*pi*t)], 'gradnorm',...
-% 			@(t) 2*pi*sqrt(0.3^2+0.5^2)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10 ) ...
-% 			struct('par', @(t) repmat([-1;1], 1, length(t)) + 0.4*[cos(2*pi*t); sin(2*pi*t)], 'gradnorm',...
-% 			@(t) 0.8*pi*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10) ...
-% 			struct('par', @(t) repmat([1;1], 1, length(t)) + [0.4*cos(2*pi*t); 0.2*sin(2*pi*t)], 'gradnorm',...
-% 			@(t) 2*pi*sqrt(0.4^2+0.2^2)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10 ) ], 'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), ...
-%             'xi', 3e-3);
 		par = struct('obsts', [struct('par', @(t) repmat([0;0], 1, length(t)) + [0.3*cos(2*pi*t); 0.5*sin(2*pi*t)], 'gradnorm',...
 			@(t) 2*pi*sqrt(0.3^2+0.5^2)*ones(size(t)), 'corners', [], 'dbf', 1, 'ppw', 10, 'serpar', ...
             @(t,mo) [0.3*(2*pi).^(0:mo-1)./factorial(0:mo-1).*cos(2*pi*t + (0:mo-1)*pi/2); ...
@@ -173,8 +165,6 @@ if exist('x','var')
     fxd = 1i*2*pi*(n.*fx);
     fyd = 1i*2*pi*(n.*fy);
     
-%     par = struct('par', @(t) parS(t), 'gradnorm', @(t) sqrt(sum(gradS(t).^2, 1)), ...
-%     par = struct('par', @(t) serparS(t,0), 'gradnorm', @(t) sqrt(sum(gradS(t).^2, 1)), 'serpar', @(t,mo) serparS(t,mo), ...
     par = struct('par', @(t) parS(t), 'gradnorm', @(t) sqrt(sum(gradS(t).^2, 1)), 'serpar', @(t,mo) serparS(t,mo), ...
         'normal', @(t) [1 0; 0 -1]*flipud(gradS(t))./repmat(sqrt(sum(gradS(t).^2, 1)),2,1), ...
         'grad', @(t) gradS(t), 'derGrad', @(t) derGradS(t), 'cur', @(t) curS(t), 'corners', [] );
@@ -214,18 +204,12 @@ function p = parS(t) % parametrisation of a smooth obstacle through interpolatio
 end
 
 function p = serparS(t, mo) % parametrisation of a smooth obstacle through interpolation
-%     p = zeros(2, length(t), mo+1);
     p = nan(2, length(t), mo);
     L = length(t);
-%     for ord = 0:mo
     for ord = 1:mo
-%         A = (1i*2*pi*repmat(n',1,L)).^ord.*exp(1i*2*pi*repmat(n',1,L).*repmat(t,N,1));
-%         A = (1i*2*pi*repmat(n',1,L)).^(ord-1).*exp(1i*2*pi*repmat(n',1,L).*repmat(t,N,1));
-%         A = (1i*2*pi*repmat(n',1,L)).^(ord-1)./factorial(ord).*exp(1i*2*pi*repmat(n',1,L).*repmat(t,N,1));
         A = (1i*2*pi*repmat(n',1,L)).^(ord-1)./factorial(ord-1).*exp(1i*2*pi*repmat(n',1,L).*repmat(t,N,1));
         
         if mod(N,2) == 1
-%             p(1,:, ord+1) = sum( repmat(fx.', 1, L) .* A, 1);
             p(1,:, ord) = sum( repmat(fx.', 1, L) .* A, 1);
             p(2,:, ord) = sum( repmat(fy.', 1, L) .* A, 1);
         else
@@ -236,8 +220,6 @@ function p = serparS(t, mo) % parametrisation of a smooth obstacle through inter
             p(1,:, ord) = p(1,:, ord) + sum( repmat(fx(M+2:N).', 1, L) .* A(M+2:N,:), 1);
             p(2,:, ord) = p(2,:, ord) + sum( repmat(fy(M+2:N).', 1, L) .* A(M+2:N,:), 1);
             % add the middle one, a cosine for ord = 0
-%             p(1,:, ord) = p(1,:, ord) + (2*pi*n(M+1))^(ord-1).*fx(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
-%             p(1,:, ord) = p(1,:, ord) + (2*pi*n(M+1))^(ord-1)./factorial(ord).*fx(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
             p(1,:, ord) = p(1,:, ord) + (2*pi*n(M+1))^(ord-1)./factorial(ord-1).*fx(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
             p(2,:, ord) = p(2,:, ord) + (2*pi*n(M+1))^(ord-1)./factorial(ord-1).*fy(M+1)*cos(2*pi*n(M+1)*t +pi/2*(ord-1));
         end
