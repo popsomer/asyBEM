@@ -10,6 +10,8 @@ set(0,'DefaultFigureWindowStyle','docked');
 
 % load V1k512obst13; % Nearconvex and ellipse at higher frequency: run makeVb1.m for this
 load V1k128obst14; % Nearconvex, ellipse and near-inclusion
+% load V1k256obst12; % Three circles
+% load V1k256obst12add2; % Three circles with 1-2-3-2 - 1-2-3-2 - ...
 
 signal = V1;
 collsignal = par.obsts(1).colltau;
@@ -17,7 +19,7 @@ collsignal = par.obsts(1).colltau;
 
 %% Calculate the phase series coefficients
 maxOrder = 6;
-[taus, c, a, ft, d] = seriesPhasePerOrbit(par, maxOrder);
+[taus, c, a, ft] = seriesPhasePerOrbit(par, maxOrder);
 
 
 %% Plot for some obstacle with index testo
@@ -28,7 +30,6 @@ for testo = 1:length(par.obsts)
     phit2 = nan(size(sig2));
     % Assume same collsignal
     % clos2 = find(abs(collsignal -taus(2)) == min(abs(collsignal-taus(2))));
-    % [~, clos2] = min(abs(collsignal-taus(2)) );
     [~, clos2] = min(abs(collsignal-taus(testo)) );
     
     phit2(clos2) = angle(sig2(clos2))./par.k;
@@ -56,10 +57,10 @@ for testo = 1:length(par.obsts)
             phit2(i) = phit2(i) + 2*pi/par.k;
         end
     end
-    phit2 = sum(d) +(phit2 - phit2(clos2) );
+    phit2 = sum(ft(:,1,1)) +(phit2 - phit2(clos2) );
     
     tayPh2 = zeros(maxOrder, length(collsignal));
-    tayPh2(1,:) = sum(d)*ones(size(collsignal));
+    tayPh2(1,:) = sum(ft(:,1,1))*ones(size(collsignal));
     % Use periodized version of collsignal in series expansion
     collser = collsignal + round(taus(testo) - collsignal);
     for i = 1:maxOrder-1
@@ -138,43 +139,89 @@ for testo = 1:length(par.obsts)
     [collsignal(ix), minDist, (collsignal(ix) -minDist), (collsignal(ix) -collsignal(ix-1))]
 end
 
+%% Plot the field due to the (normalised) densities
+dens = zeros(par.N,1);
+ev = 1; % First eigenvector
+
+figure;
+% nd = 50; % Number of discretisation points in both directions
+nd = 3; % Fast but wrong plot
+v = struct('field', zeros(nd));
+fss = 'Fontsize'; fs = 22;
+lws = 'LineWidth'; lw = 5;
+
+mi = [Inf; Inf];
+ma = [-Inf; -Inf];
+obst = 1;
+% obst = 2;
+% obst = 3;
+dens(par.r(1,obst):par.r(2,obst)) = allV{obst}(:,ev)/norm(allV{obst}(:,ev)); %Only field due do mode on one obst
+obTest = obst;
+for obst = 1:length(par.obsts)
+    % Divide by norm because only norm 1 for obst = 1 and was then multiplied with submatrices in makeVb1.m
+%     dens(par.r(1,obst):par.r(2,obst)) = allV{obst}(:,ev)/norm(allV{obst}(:,ev));
+    vp = par.obsts(obst).par(linspace(0,1,round(nd/length(par.obsts))));
+    mi = min([mi,vp], [], 2);
+    ma = max([ma,vp], [], 2);
+end
+siz = 0.6*max(ma-mi);
+v.xs = (mi(1)+ma(1))/2 +linspace(-siz,siz,nd+1);
+v.ys = (mi(2)+ma(2))/2 +linspace(-siz,siz,nd);
+tic
+prevToc = toc;
+printtoc = 1;
+for nx = 1:nd+1
+    if (toc-prevToc > printtoc)
+        prevToc = toc;
+        display([num2str(nx/(nd+1)),' computed fraction, now=' datestr(now) ', est. # sec left =' num2str(toc*(nd-nx+1)/(nx-1)) ])
+    end
+            
+    for ny = 1:nd
+        v.field(ny,nx) = evalFieldQBF(par,[v.xs(nx); v.ys(ny)], dens, 0);
+    end
+end
+
+pcolor(v.xs, v.ys, real(v.field))
+
+shading interp;
+h(3) = colorbar;
+ylabel(h(3),['Re($S_{x,' num2str(obTest) '}(\tilde{V}_' num2str(obTest) '$))'], 'Interpreter','latex')
+hold on;
+set(gca,fss,fs);
 
 %% Plot the obstacles
-
 showTau = (0:5)/6;
 perOrbit = nan(2,length(par.obsts));
 ts = linspace(0,1,200)';
 
-figure;
+figure; % Uncomment to separate, or comment to add this plot to the field
 for moi = 1:length(par.obsts)
     topl = par.obsts(moi).par(ts');
-    plot(topl(1,:), topl(2,:));
+    plot(topl(1,:), topl(2,:), lws, lw);
     hold on;
-%     h = text(mean(topl(1,:)) - 0.5*(max(topl(1,:))-min(topl(1,:)))+0.1, mean(topl(2,:)), ['Obst. ' num2str(moi)]);
     h = text(mean(topl(1,:))- 0.4*(max(topl(1,:))-min(topl(1,:))), ...
         mean(topl(2,:)) - 0.12*(max(topl(2,:))-min(topl(2,:))), ['Obst. ' num2str(moi)]);
-    set(h,'FontSize',20);
+    set(h,fss,fs);
     
     for si = 1:length(showTau)
         pt = par.obsts(moi).par(showTau(si));
         plot(pt(1), pt(2), 'ro','MarkerFaceColor','r', 'MarkerSize',5);
-%         h = text(pt(1)-0.3, pt(2)+0.1, ['$\tau=$ ' num2str(showTau(si))], 'interpreter', 'latex');
         h = text(pt(1) +0.04 -shft*(abs(showTau(si)-0.5) < 1/4), pt(2), ['$\tau=$ ' num2str(showTau(si), '%0.2f')], ...
             'interpreter', 'latex', 'FontSize', 16);
         set(h,'FontSize',20, 'color', 'r');
     end
     perOrbit(:,moi) = par.obsts(moi).par(taus(moi));
 end
-plot([perOrbit(1,:) perOrbit(1,1)], [perOrbit(2,:) perOrbit(2,1)]);
- quiver( [(perOrbit(1,1:end-1) + perOrbit(1,2:end)), (perOrbit(1,1) + perOrbit(1,end))]/2, ...
+plot([perOrbit(1,:) perOrbit(1,1)], [perOrbit(2,:) perOrbit(2,1)], lws, lw);
+quiver( [(perOrbit(1,1:end-1) + perOrbit(1,2:end)), (perOrbit(1,1) + perOrbit(1,end))]/2, ...
     [(perOrbit(2,1:end-1) + perOrbit(2,2:end)), (perOrbit(2,1) + perOrbit(2,end))]/2,...
     [(perOrbit(1,2:end) - perOrbit(1,1:end-1)), (perOrbit(1,1)- perOrbit(1,end))]/16, ...
-    [(perOrbit(2,2:end) - perOrbit(2,1:end-1)), (perOrbit(2,1)- perOrbit(2,end))]/16);
+    [(perOrbit(2,2:end) - perOrbit(2,1:end-1)), (perOrbit(2,1)- perOrbit(2,end))]/16, lws, lw);
 axis equal;
-set(gca, 'FontSize', 20);
+set(gca, fss, fs); 
 
-if shft == 0.3
-    yticks([0.4, 0.6, 0.8]);
-elseif shft == 0.4
-    yticks([-0.6,  -0.4, 0.4, 0.6, 0.8, 1]);
-end
+% if shft == 0.3
+%     yticks([0.4, 0.6, 0.8]);
+% elseif shft == 0.4
+%     yticks([-0.6,  -0.4, 0.4, 0.6, 0.8, 1]);
+% end

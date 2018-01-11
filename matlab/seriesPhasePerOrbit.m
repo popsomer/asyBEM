@@ -9,8 +9,7 @@
 %   c     - The expansion coefficients of the phase
 %   a     - The expansion coefficients of the stationary point
 %   ft    - Series expansion coefficients of the distance
-%   d     - Distances between the obstacles along the periodic orbit
-function [taus, c, a, ft, d] = seriesPhasePerOrbit(par, maxOrder)
+function [taus, c, a, ft] = seriesPhasePerOrbit(par, maxOrder)
 
 J = length(par.obsts);
 
@@ -34,7 +33,7 @@ end
 % taus = fminunc(@distWHess, taus, optimoptions('fminunc', 'Algorithm', 'newton', 'SpecifyObjectiveGradient', true, ...
 %     'HessianFcn','objective', 'TolX', eps, 'TolFun', eps, 'OptimalityTolerance', eps, 'MaxFunctionEvaluations', 1000));
 taus = fminunc(@distWHess, taus, optimoptions('fminunc', 'Algorithm', 'quasi-newton', 'SpecifyObjectiveGradient', true, ...
-    'TolX', eps, 'TolFun', eps, 'OptimalityTolerance', eps, 'MaxFunctionEvaluations', 1000));
+    'TolX', eps, 'TolFun', eps, 'OptimalityTolerance', eps, 'MaxFunctionEvaluations', 1000, 'Display', 'off'));
 % [dt, g, H] = distWHess(taus) % check optimality
 
 function [dt, g, H] = distWHess(ts)
@@ -48,9 +47,9 @@ function [dt, g, H] = distWHess(ts)
         difGam = gam(:,1) -prGam(:,1);
         curDis = norm(difGam);
         dt = dt + curDis;
-        gob = transpose(difGam)*gam(:,2)/curDis;
+        gob = 2*transpose(difGam)*gam(:,2)/curDis;
         g(ob) = g(ob) + gob;
-        gprev = - transpose(difGam)*prGam(:,2)/curDis;
+        gprev = -2*transpose(difGam)*prGam(:,2)/curDis;
         g(prev) = g(prev) + gprev;
         
         H(ob,ob) = H(ob,ob) +(sum(gam(:,3).^2) +transpose(difGam)*gam(:,2).^2 -g(ob)/2/curDis)/curDis;
@@ -66,7 +65,6 @@ binom = @(x,n) prod(x:-1:(x-n+1) )/prod(1:n)*0^((n<0) + abs(rem(n,1)) ); % Not t
 
 % Actually, we only need (1, maxOrder, maxOrder) if J = 2 but this would slightly complicate the implementation.
 ft = nan(J, maxOrder+1, maxOrder+1);
-d = nan(J,1);
 for obst = 1:J
     % Take next obstacle as in makeV1.m
     other = obst +1 -(obst == length(par.obsts))*length(par.obsts);
@@ -74,7 +72,7 @@ for obst = 1:J
     Gamb = par.obsts(other).serpar(taus(other), maxOrder+1);
     Lambda = nan(maxOrder+1, maxOrder+1, 2);
     Lambda(1,1,:) = Gamb(:,1).^2 - 2*Gama(:,1).*Gamb(:,1) + Gama(:,1).^2;
-    d(obst) = sqrt(sum(Lambda(1,1,:)));
+    ft(obst,1,1) = sqrt(sum(Lambda(1,1,:)));
     for l = 2:maxOrder+1
         Lambda(1,l,:) = sum(Gamb(:,1:l).*Gamb(:, l:-1:1), 2) -2*Gama(:,1).*Gamb(:,l);
     end
@@ -89,7 +87,7 @@ for obst = 1:J
     zt = nan(2*maxOrder, maxOrder+1, maxOrder+1);
     % Avoid wrong conversion of dimensions by this loop
     for i = 1:maxOrder+1
-        zt(1,i,:) = (Lambda(i,:,1) + Lambda(i,:,2))/d(obst)^2;
+        zt(1,i,:) = (Lambda(i,:,1) + Lambda(i,:,2))/ft(obst,1,1)^2;
     end
     zt(1,1,1) = nan;
     for m = 2:2*maxOrder
@@ -109,7 +107,7 @@ for obst = 1:J
             for m = 2:k-2+i
                 ft(obst,i,k) = ft(obst,i,k) + binom(1/2,m)*zt(m,i,k);
             end
-            ft(obst,i,k) = d(obst)*ft(obst,i,k);
+            ft(obst,i,k) = ft(obst,1,1)*ft(obst,i,k);
         end
     end
 end
@@ -120,7 +118,7 @@ c = nan(J, maxOrder);
 if J == 2
     % No tolerance 20*eps but 1e-10 due to loss of digits in objective fct in fmincon for quasi-Newton
     % with exact parametrisation without FFT. Even 1e-6*d(1) for trust-region which uses the analytic Hessian.
-    tol = d(1)*1e-7;
+    tol = ft(1,1,1)*1e-7;
     if (abs(ft(1, 2, 1)) > tol) || (abs(ft(1, 1, 2)) > tol) 
         error('Distance should be minimal.');
     elseif (abs(ft(1, 3, 1)) < tol) && (abs(ft(1, 1, 3)) < tol) && (abs(ft(1, 2,2)) < tol)
@@ -181,6 +179,9 @@ end
 
     % op = [omega_{1,2}, omega_{2,2}, ... ; psi_{1,1}, psi_{2,1}, ...]
     % ca = [c_{1,2}, c_{2,2}, ... ; a_{1,1,1}, a_{2,1,1}... ]
+    % Actually, \omega_{j,2} = 0 = [c_{j,2} + f_{j,3,1} ] (a_{j,1,1})^2 + f_{j,2,2} a_{j,1,1}  - c_{j+1,2}  + f_{j,1,3}, 
+    % but we get [c_{j,2} + f_{j,3,1} ] = -f_{j,2,2}/2/a_{j,1,1} from psi_{j,1} to simplify the formulae to 
+    % \omega_{j,2} = 0 = f_{j,2,2} a_{j,1,1}/2  - c_{j+1,2}  + f_{j,1,3}, 
     function op = omPsi(ca)
         op = [[-ca(1,2:end), -ca(1,1)]; 2*ca(1,:).*ca(2,:)];
         for ob = 1:size(ca,2)
@@ -189,14 +190,18 @@ end
         end
     end
 
-ca = fsolve(@omPsi, [+transpose(ft(:,3,1)); zeros(1,J)]);
+ca = fsolve(@omPsi, [+transpose(ft(:,3,1)); zeros(1,J)], optimoptions('fsolve', ...
+    'TolX', eps, 'TolFun', eps, 'OptimalityTolerance', eps, 'MaxFunctionEvaluations', 1000, 'Display', 'off') );
 if (norm(c(:,2)' -ca(1,:)) > eps^(1/2)*norm(c(:,2)) ) || (norm(a(:,1,1) -ca(2,:)') > eps^(1/2)*norm(ca(2,:)) )
-    error('Different result');
-elseif any(c(:,2) < eps^(1/2))
-    warning('c_{j,2} is zero or negative');
+    error('Different result'); % if c not set then nan so tests fail
 end
 c(:,2) = ca(1,:);
 a(:,1,1) = ca(2,:);
+if (J ~= 2) && any(a(:,1,1) > abs(ft(:,1,2)./ft(:,2,1)) )
+    warning('\chi does not contract around the periodic orbit');
+elseif any(c(:,2) < eps^(1/2))
+    warning('c_{j,2} is zero or negative so \tau_{j+1}^* is not close to a minimum');
+end
 
 for i = 3:maxOrder
     for l = (i-1):maxOrder

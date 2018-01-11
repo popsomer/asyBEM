@@ -7,13 +7,22 @@ format longe
 set(0,'DefaultFigureWindowStyle','docked');
 
 % ks = 2^9; 
-ks = 2^7;
+ks = 2^8;
+% ks = 2^7;
 
 % obstacle = 5; % Two circles
-% obstacle = 12; % Three circles
+obstacle = 12; % Three circles
 % obstacle = 13; % Near-convex and ellipse
-obstacle = 14; % Near-convex, ellipse and near-inclusion
-swap = 6;
+% obstacle = 14; % Near-convex, ellipse and near-inclusion
+
+% swap = 6;
+swap = 0; % Possibly swap to other (order of) obstacles
+
+% add = [2 3 1 2 1 2 1 3]; % For strange long periodic orbit
+add = 2; % Add obstacle 2 again at the end such that the periodic orbit is 1-2-3-2-1-2-3-2-1-...
+% add = []; % Add no obstacle(s) that already appear in getObst(obstacle) or swap at the end
+
+mev = 2; % Maximal number of eigenvectors to save
 
 bc = 1;
 % bcsh = pi/2; % shift in boundary condition
@@ -22,15 +31,16 @@ printtoc = 10;
 kl = length(ks);
 nbOb = 1; %length(obsts);
 
-avm = 100; % Number of random taus to average BC over
-v = struct('avm', avm, 'taus', rand(avm,1), 'errBCavm', zeros(nbOb*kl,2), 'errSol', zeros(nbOb*kl,2),  ...
-    'errInt', zeros(nbOb*kl,2), 'timeA', zeros(nbOb*kl,4), 'ks', ks); %, 'field', zeros(70) );
+% Possibly validate asymptotic compression results with some boundary condition:
+% avm = 100; % Number of random taus to average BC over
+% v = struct('avm', avm, 'taus', rand(avm,1), 'errBCavm', zeros(nbOb*kl,2), 'errSol', zeros(nbOb*kl,2),  ...
+%     'errInt', zeros(nbOb*kl,2), 'timeA', zeros(nbOb*kl,4), 'ks', ks); %, 'field', zeros(70) );
 
 %% Computations
 start = now;
 
 for ki = 1:kl
-    if swap == 0
+    if ~exist('swap','var') || (swap == 0)
         par = getObst(obstacle); % Reset par
     elseif swap == 1 % Three circles switched
         obstacle = '12swap';
@@ -106,6 +116,14 @@ for ki = 1:kl
             0.25*(2*pi).^(0:mo-1)./factorial(0:mo-1).*sin(2*pi*t + (0:mo-1)*pi/2)]) ], ...
             'bc', @(k,x) -1*exp(1i*k*(x')*[cos(0); sin(0)]), 'xi', 3e-3);
     end
+    if exist('add','var') && ~isempty(add)
+        obstacle = [num2str(obstacle) 'add' num2str(add)];
+        obstacle(obstacle == ' ') = '-';
+        for ad = add
+            par.obsts = [par.obsts par.obsts(ad)];
+        end
+    end
+    
     par.k = ks(ki);
     par.N = 0;
     par.r = zeros(2,length(par.obsts)); % ranges
@@ -121,7 +139,9 @@ for ki = 1:kl
         par.obsts(obst).hs = (par.obsts(obst).colltau(2) -par.obsts(obst).colltau(1) )/2;
     end
     
-    if bc == 4
+    if ~exist('bc','var') || (bc == 0)
+        % Leave boundary condition unchanged
+    elseif bc == 4
         par.bc = @(k,x)-1*exp(1i*k*(x')*[cos(-pi/2-bcsh);sin(-pi/2-bcsh)]);
     elseif bc == 3
         par.bc = @(k,x)-1*exp(1i*k*(x')*[cos(-pi/2);sin(-pi/2)]);
@@ -191,7 +211,6 @@ for ki = 1:kl
     
     %% Saving 'mev' eigenvectors per obstacle
     V1 = Vb(:,1);
-    mev = 2;
     allV = cell(length(par.obsts)+1,1);
     allV{1} = Vb(:,1:mev);
     for obst = 1:length(par.obsts)
